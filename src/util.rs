@@ -1,3 +1,4 @@
+use core::ops::{Add, Sub, Rem};
 use core::str;
 
 // helper function to convert to big endian
@@ -14,6 +15,13 @@ pub fn be_u32(raw: u32) -> u32 {
 #[inline]
 pub fn be_u32(raw: u32) -> u32 {
     raw
+}
+
+#[inline]
+pub fn align<T>(val: T, to: T)
+-> T
+where T: Copy +  Add<Output=T> + Sub<Output=T> + Rem<Output=T> {
+    val + (to - (val % to)) % to
 }
 
 pub enum SliceReadError {
