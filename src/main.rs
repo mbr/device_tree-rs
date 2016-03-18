@@ -305,5 +305,12 @@ fn main() {
 
     let mut parser = DeviceTreeParser::new(&mut buf);
 
-    println!("{:?} @ {:#X}", parser.parse(), parser.pos());
+    match parser.parse() {
+        Ok(result) => {
+            println!("OK {:?}", result);
+        },
+        Err(e) => {
+            println!("{:?} @ {:#X}", e, parser.pos());
+        }
+    }
 }
