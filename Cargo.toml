@@ -4,3 +4,5 @@ version = "0.1.0"
 authors = ["Marc Brinkmann <git@marcbrinkmann.de>"]
 
 [dependencies]
+clap = "^2.2.1"
+byteorder = "^0.5.0"
