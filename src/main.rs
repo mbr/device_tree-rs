@@ -290,14 +290,40 @@ impl fmt::Display for DeviceTree {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,
                "device tree (version {}, compat {}, boot cpu {}), {} bytes\n\
-               / {:?}"
+               {}"
                ,
                self.header.version,
                self.header.last_comp_version,
                self.header.boot_cpuid_phys,
                self.header.totalsize,
-               self.root)
+               &self.root)
     }
+}
+
+impl<'a> fmt::Display for &'a Node {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        display_node(self, f, 0)
+    }
+}
+
+fn display_node(node: &Node, f: &mut fmt::Formatter, indent: u32)
+-> fmt::Result  {
+    let mut indt = String::new();
+    for _ in 0..indent {
+        indt = indt + "  ";
+    }
+
+    if node.name.len() == 0 {
+        try!(write!(f, "{}/\n", indt));
+    } else {
+        try!(write!(f, "{}{:?}\n", indt, node.name));
+    }
+
+    for child in node.children.iter() {
+        try!(display_node(child, f, indent + 1))
+    }
+
+    Ok(())
 }
 
 fn main() {
