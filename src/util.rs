@@ -29,6 +29,17 @@ impl<'a> MiniStream<'a> {
         }
     }
 
+    pub fn read_bytes(&mut self, len: usize)
+    -> result::Result<&[u8], MiniStreamReadError> {
+        if self.pos + len < self.buf.len() {
+            let block = &self.buf[self.pos..self.pos+len];
+            self.pos += len;
+            Ok(block)
+        } else {
+            Err(MiniStreamReadError::ReadPastEnd)
+        }
+    }
+
     pub fn read_u32_le(&mut self) -> result::Result<u32, MiniStreamReadError> {
         if self.pos + 4 < self.buf.len() {
             let val: u32 = unsafe {
