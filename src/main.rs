@@ -184,8 +184,6 @@ impl<'a> DeviceTreeParser<'a> {
                 }
             }
 
-            println!("Almost done reading {:?}", rs);
-
             // proper end node needed
             self.expect_tag(Tag::EndNode);
 
@@ -196,18 +194,14 @@ impl<'a> DeviceTreeParser<'a> {
     }
 
     fn far_string0(&mut self, offset: usize) -> Result<Vec<u8>> {
-        let mut v = Vec::new();
-        v.extend(b"FIXME");
-        Ok(v)
-        // let pos = self.pos();
-        // try!(self.buf.seek(self.string_offset + offset));
-        // println!("trying tp read {} from {}", len, self.pos());
-        // let buf = try!(self.buf.read_bytes(len)).to_owned();
-        // try!(self.buf.seek(pos));
+        let pos = self.pos();
 
-        // println!("FAR STRING  {:?}", buf);
+        try!(self.buf.seek(self.string_offset + offset));
+        let buf = try!(self.buf.read_string0()).to_owned();
 
-        // Ok(buf)
+        try!(self.buf.seek(pos));
+
+        Ok(buf)
     }
 
     pub fn parse(&mut self) -> Result<DeviceTree> {
