@@ -1,7 +1,7 @@
 extern crate core;
 extern crate clap;
 
-use core::result;
+use core::{fmt, result, str};
 pub mod util;
 use util::{MiniStream, MiniStreamReadError};
 
@@ -29,11 +29,31 @@ type Result<T> = result::Result<T, ParseError>;
 struct DeviceTreeParser<'a>
 {
     buf: MiniStream<'a>,
+    string_offset: usize,
+
 }
 
 #[derive(Debug)]
 struct DeviceTree {
-    header: DeviceTreeHeader
+    header: DeviceTreeHeader,
+}
+
+struct Property {
+    name: Vec<u8>,
+    data: Vec<u8>,
+}
+
+#[derive(Debug)]
+struct Structure {
+    properties: Vec<Property>,
+}
+
+impl fmt::Debug for Property {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}: {}",
+               str::from_utf8(self.name.as_slice()).unwrap_or("(!utf8)"),
+               str::from_utf8(self.data.as_slice()).unwrap_or("(!utf8)"))
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -54,7 +74,7 @@ impl Tag {
             0x09 => Ok(Tag::End),
             0xd00dfeed => Ok(Tag::Magic),
             _ => {
-                println!("INVALID TAG {:#X}", val);
+                // println!("INVALID TAG {:#X}", val);
                 Err(ParseError::InvalidTag)
             },
         }
@@ -65,6 +85,7 @@ impl<'a> DeviceTreeParser<'a> {
     pub fn new(buf: &'a [u8]) -> DeviceTreeParser<'a> {
         DeviceTreeParser{
             buf: MiniStream::new(buf),
+            string_offset: 0,
         }
     }
 
@@ -102,7 +123,7 @@ impl<'a> DeviceTreeParser<'a> {
     fn string0(&mut self) -> Result<&[u8]> {
         let start = self.buf.pos();
         let mut num_blocks = 0;
-        let mut offset;
+        let offset;
 
         'search: loop {
             let block = try!(self.buf.read_bytes(4));
@@ -121,26 +142,40 @@ impl<'a> DeviceTreeParser<'a> {
         Ok(&data[..data.len()-offset])
     }
 
-    fn structure(&mut self) -> Result<Option<()>> {
+    fn structure(&mut self) -> Result<Option<Structure>> {
+        let mut rs = Structure{
+            properties: Vec::new()
+        };
+
         if try!(self.accept_tag(Tag::BeginNode)) {
             let name = try!(self.string0()).to_owned();
-            println!("NAME {:?}", name);
-
-            println!("AFTER NAME POS IS {:#x}", self.pos());
             while try!(self.accept_tag(Tag::Property)) {
                 let val_size = try!(self.buf.read_u32_le());
                 let val_offset = try!(self.buf.read_u32_le());
 
                 // specs unclear, now following "proeprty value data if any"
                 let val_data = try!(self.string0());
-                println!("FOUND PROPERTY {} {} {:?}",
-                        val_size, val_offset, val_data);
+                let prop = Property{
+                    name: vec![1, 2, 3, 4],
+                    data: val_data.to_owned(),
+                };
+                println!("FOUND PROPERTY {:?}", prop);
+                rs.properties.push(prop);
             }
-            println!("Done READING PROPS");
-            Ok(Some(()))
+
+            Ok(Some(rs))
         } else {
             Ok(None)
         }
+    }
+
+    fn far_string0(&mut self, offset: usize) -> Result<&[u8]> {
+        let pos = self.pos();
+        try!(self.buf.seek(self.string_offset + offset));
+        let buf = try!(self.string0());
+        try!(self.buf.seek(pos));
+
+        Ok(buf)
     }
 
     pub fn parse(&mut self) -> Result<DeviceTree> {
@@ -152,6 +187,7 @@ impl<'a> DeviceTreeParser<'a> {
         let totalsize = try!(self.buf.read_u32_le());
         let off_dt_struct = try!(self.buf.read_u32_le());
         let off_dt_strings = try!(self.buf.read_u32_le());
+        self.string_offset = off_dt_strings as usize;
         let off_mem_rsvmap = try!(self.buf.read_u32_le());
         let version = try!(self.buf.read_u32_le());
         let last_comp_version = try!(self.buf.read_u32_le());
@@ -191,11 +227,12 @@ impl<'a> DeviceTreeParser<'a> {
             size_dt_struct: size_dt_struct,
         };
 
+
         println!("{:?}",header);
 
         // read structure first
         try!(self.buf.seek(off_dt_struct as usize));
-        try!(self.structure());
+        println!("READ STRUCT {:?}", try!(self.structure()));
 
 
         Ok(DeviceTree{
