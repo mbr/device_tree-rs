@@ -1,10 +1,11 @@
 use core::mem::size_of;
 use core::{fmt, result, str};
 
-use util::{be_u32, SliceReader};
+use util::{be_u32, SliceRead, SliceReadError};
 
 const MAGIC_NUMBER: u32 = 0xd00dfeed;
 const SUPPORTED_VERSION: u32 = 17;
+const OF_DT_BEGIN_NODE: u32 = 0x01;
 
 #[derive(Debug)]
 pub enum DeviceTreeError {
@@ -14,6 +15,8 @@ pub enum DeviceTreeError {
     UnsupportedVersion,
     RunawayString,
     Utf8Error,
+    SliceReadError,
+    InvalidTag,
 }
 
 pub type Result<T> = result::Result<T, DeviceTreeError>;
@@ -45,12 +48,18 @@ pub struct Header {
 pub struct Node<'a> {
     buffer: &'a [u8],
     start: usize,
-    name_len: usize,
+    name_end: usize,
 }
 
 impl From<str::Utf8Error> for DeviceTreeError {
-    fn from(e: str::Utf8Error) -> DeviceTreeError {
+    fn from(_: str::Utf8Error) -> DeviceTreeError {
         DeviceTreeError::Utf8Error
+    }
+}
+
+impl From<SliceReadError> for DeviceTreeError {
+    fn from(_: SliceReadError) -> DeviceTreeError {
+        DeviceTreeError::SliceReadError
     }
 }
 
@@ -157,25 +166,16 @@ impl fmt::Debug for Header {
 
 impl<'a> Node<'a> {
     pub fn new(buffer: &'a [u8], start: usize) -> Result<Node<'a>> {
-        // determine name length
-        let mut pos = start;
-        let name_len;
-        loop {
-            if buffer[pos] == 0 {
-                name_len = pos - start;
-                break
-            }
-
-            pos += 1;
-            if pos == buffer.len() {
-                return Err(DeviceTreeError::RunawayString)
-            }
+        if try!(buffer.read_be_u32(start)) != OF_DT_BEGIN_NODE {
+            return Err(DeviceTreeError::InvalidTag)
         }
+
+        let name = try!(buffer.read_bstring0(start+4));
 
         Ok(Node{
             buffer: buffer,
             start: start,
-            name_len: name_len,
+            name_end: start + 4 + name.len(),
         })
     }
 
@@ -184,7 +184,8 @@ impl<'a> Node<'a> {
     }
 
     pub fn name_bytes(&self) -> &'a [u8] {
-        &self.buffer[self.start..(self.start + self.name_len)]
+        let begin = self.start + 4;
+        &self.buffer[begin..self.name_end]
     }
 }
 
