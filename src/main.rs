@@ -22,6 +22,7 @@ enum ParseError {
     ReadError,
     InvalidTag,
     UnexpectedTag,
+    NoRootFound,
 }
 
 type Result<T> = result::Result<T, ParseError>;
@@ -36,6 +37,7 @@ struct DeviceTreeParser<'a>
 #[derive(Debug)]
 struct DeviceTree {
     header: DeviceTreeHeader,
+    root: Structure,
 }
 
 struct Property {
@@ -74,10 +76,7 @@ impl Tag {
             0x03 => Ok(Tag::Property),
             0x09 => Ok(Tag::End),
             0xd00dfeed => Ok(Tag::Magic),
-            _ => {
-                // println!("INVALID TAG {:#X}", val);
-                Err(ParseError::InvalidTag)
-            },
+            _ => Err(ParseError::InvalidTag),
         }
     }
 }
@@ -253,17 +252,16 @@ impl<'a> DeviceTreeParser<'a> {
             size_dt_struct: size_dt_struct,
         };
 
-
-        println!("{:?}",header);
-
         // read structure first
         try!(self.buf.seek(off_dt_struct as usize));
-        println!("READ STRUCT {:?}", try!(self.structure()));
 
-
-        Ok(DeviceTree{
-            header: header
-        })
+        match try!(self.structure()) {
+            None => Err(ParseError::NoRootFound),
+            Some(root) => Ok(DeviceTree{
+                header: header,
+                root: root,
+            })
+        }
     }
 }
 
