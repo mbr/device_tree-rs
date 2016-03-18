@@ -144,7 +144,6 @@ impl<'a> DeviceTreeParser<'a> {
     }
 
     fn structure(&mut self) -> Result<Option<Structure>> {
-
         if try!(self.accept_tag(Tag::BeginNode)) {
             let name = try!(self.block_string0()).to_owned();
             let mut rs = Structure{
