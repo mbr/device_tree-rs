@@ -54,9 +54,10 @@ struct Node {
 
 impl fmt::Debug for Property {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {}",
-               str::from_utf8(self.name.as_slice()).unwrap_or("(!utf8)"),
-               str::from_utf8(self.data.as_slice()).unwrap_or("(!utf8)"))
+        write!(f,
+               "{}: {}",
+               from_utf8_safe(self.name.as_slice()),
+               from_utf8_safe(self.data.as_slice()))
     }
 }
 
@@ -303,6 +304,13 @@ impl fmt::Display for DeviceTree {
 impl<'a> fmt::Display for &'a Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         display_node(self, f, 0)
+    }
+}
+
+fn from_utf8_safe(v: &[u8]) -> &str {
+    match str::from_utf8(v) {
+        Ok(s) => s,
+        Err(_) => "utf8!invalid"
     }
 }
 
