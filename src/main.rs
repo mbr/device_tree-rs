@@ -143,7 +143,7 @@ impl<'a> DeviceTreeParser<'a> {
         Ok(&data[..data.len()-offset])
     }
 
-    fn Node(&mut self) -> Result<Option<Node>> {
+    fn node(&mut self) -> Result<Option<Node>> {
         if try!(self.accept_tag(Tag::BeginNode)) {
             let name = try!(self.block_string0()).to_owned();
             let mut rs = Node{
@@ -178,7 +178,7 @@ impl<'a> DeviceTreeParser<'a> {
 
             // after properties, read child nodes
             loop {
-                if let Some(child) = try!(self.Node()) {
+                if let Some(child) = try!(self.node()) {
                     rs.children.push(child)
                 } else {
                     break
@@ -257,7 +257,7 @@ impl<'a> DeviceTreeParser<'a> {
         // read Node first
         try!(self.buf.seek(off_dt_struct as usize));
 
-        match try!(self.Node()) {
+        match try!(self.node()) {
             None => Err(ParseError::NoRootFound),
             Some(root) => Ok(DeviceTree{
                 header: header,
