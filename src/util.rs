@@ -23,6 +23,38 @@ impl<'a> MiniStream<'a> {
         self.pos
     }
 
+    pub fn align(&mut self) -> result::Result<(), MiniStreamReadError> {
+        let m = self.pos % 4;
+        if m != 0 {
+            let step = 4 - m;
+            if step + self.pos >= self.buf.len() {
+                return Err(MiniStreamReadError::ReadPastEnd)
+            }
+
+            self.pos += step
+        }
+        Ok(())
+    }
+
+    pub fn read_string0(&mut self)
+    -> result::Result<&[u8], MiniStreamReadError> {
+        let start = self.pos;
+
+        loop {
+            if self.buf[self.pos] == 0 {
+                self.pos += 1;
+                break
+            }
+            self.pos += 1;
+
+            if ! self.pos < self.buf.len() {
+                return Err(MiniStreamReadError::ReadPastEnd)
+            }
+        }
+
+        Ok(&self.buf[start..self.pos])
+    }
+
     pub fn read_bytes(&mut self, len: usize)
     -> result::Result<&[u8], MiniStreamReadError> {
         if self.pos + len < self.buf.len() {

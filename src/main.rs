@@ -121,7 +121,7 @@ impl<'a> DeviceTreeParser<'a> {
         }
     }
 
-    fn string0(&mut self) -> Result<&[u8]> {
+    fn block_string0(&mut self) -> Result<&[u8]> {
         let start = self.buf.pos();
         let mut num_blocks = 0;
         let offset;
@@ -150,19 +150,27 @@ impl<'a> DeviceTreeParser<'a> {
         };
 
         if try!(self.accept_tag(Tag::BeginNode)) {
-            let name = try!(self.string0()).to_owned();
+            let name = try!(self.block_string0()).to_owned();
             while try!(self.accept_tag(Tag::Property)) {
-                let val_size = try!(self.buf.read_u32_le());
-                let val_offset = try!(self.buf.read_u32_le());
+                let prop_data_len = try!(self.buf.read_u32_le());
 
-                // specs unclear, now following "proeprty value data if any"
-                let val_name = try!(
-                    self.far_string0(val_offset as usize,
-                                     val_size as usize));
-                let val_data = try!(self.string0());
+                let prop_name_offset = try!(self.buf.read_u32_le());
+
+                let mut prop_data = Vec::new();
+                prop_data.extend(
+                    try!(self.buf.read_bytes(prop_data_len as usize))
+                );
+
+                // re-align to 4 byte blocks
+                self.buf.align();
+
+                let prop_val_name = try!(
+                    self.far_string0(prop_name_offset as usize)
+                );
+
                 let prop = Property{
-                    name: val_name,
-                    data: val_data.to_owned(),
+                    name: prop_val_name,
+                    data: prop_data,
                 };
                 rs.properties.push(prop);
             }
@@ -187,7 +195,7 @@ impl<'a> DeviceTreeParser<'a> {
         }
     }
 
-    fn far_string0(&mut self, offset: usize, len: usize) -> Result<Vec<u8>> {
+    fn far_string0(&mut self, offset: usize) -> Result<Vec<u8>> {
         let mut v = Vec::new();
         v.extend(b"FIXME");
         Ok(v)
