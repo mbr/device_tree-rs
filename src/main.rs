@@ -46,6 +46,7 @@ struct Property {
 #[derive(Debug)]
 struct Structure {
     properties: Vec<Property>,
+    children: Vec<Structure>,
 }
 
 impl fmt::Debug for Property {
@@ -112,11 +113,11 @@ impl<'a> DeviceTreeParser<'a> {
         }
     }
 
-    fn expect_tag(&mut self, tag: Tag) -> Result<Tag> {
-        if try!(self.tag()) != tag {
+    fn expect_tag(&mut self, tag: Tag) -> Result<()> {
+        if ! try!(self.accept_tag(tag)) {
             Err(ParseError::UnexpectedTag)
         } else {
-            Ok(tag)
+            Ok(())
         }
     }
 
@@ -144,7 +145,8 @@ impl<'a> DeviceTreeParser<'a> {
 
     fn structure(&mut self) -> Result<Option<Structure>> {
         let mut rs = Structure{
-            properties: Vec::new()
+            properties: Vec::new(),
+            children: Vec::new(),
         };
 
         if try!(self.accept_tag(Tag::BeginNode)) {
@@ -154,14 +156,30 @@ impl<'a> DeviceTreeParser<'a> {
                 let val_offset = try!(self.buf.read_u32_le());
 
                 // specs unclear, now following "proeprty value data if any"
+                let val_name = try!(
+                    self.far_string0(val_offset as usize,
+                                     val_size as usize));
                 let val_data = try!(self.string0());
                 let prop = Property{
-                    name: vec![1, 2, 3, 4],
+                    name: val_name,
                     data: val_data.to_owned(),
                 };
-                println!("FOUND PROPERTY {:?}", prop);
                 rs.properties.push(prop);
             }
+
+            // after properties, read child nodes
+            loop {
+                if let Some(child) = try!(self.structure()) {
+                    rs.children.push(child)
+                } else {
+                    break
+                }
+            }
+
+            println!("Almost done reading {:?}", rs);
+
+            // proper end node needed
+            self.expect_tag(Tag::EndNode);
 
             Ok(Some(rs))
         } else {
@@ -169,13 +187,19 @@ impl<'a> DeviceTreeParser<'a> {
         }
     }
 
-    fn far_string0(&mut self, offset: usize) -> Result<&[u8]> {
-        let pos = self.pos();
-        try!(self.buf.seek(self.string_offset + offset));
-        let buf = try!(self.string0());
-        try!(self.buf.seek(pos));
+    fn far_string0(&mut self, offset: usize, len: usize) -> Result<Vec<u8>> {
+        let mut v = Vec::new();
+        v.extend(b"FIXME");
+        Ok(v)
+        // let pos = self.pos();
+        // try!(self.buf.seek(self.string_offset + offset));
+        // println!("trying tp read {} from {}", len, self.pos());
+        // let buf = try!(self.buf.read_bytes(len)).to_owned();
+        // try!(self.buf.seek(pos));
 
-        Ok(buf)
+        // println!("FAR STRING  {:?}", buf);
+
+        // Ok(buf)
     }
 
     pub fn parse(&mut self) -> Result<DeviceTree> {
