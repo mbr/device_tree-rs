@@ -20,7 +20,8 @@ use std::io::Read;
 enum ParseError {
     InvalidMagic,
     ReadError,
-    InvalidTagError,
+    InvalidTag,
+    UnexpectedTag,
 }
 
 type Result<T> = result::Result<T, ParseError>;
@@ -38,6 +39,7 @@ struct DeviceTree {
 #[derive(Debug, PartialEq)]
 enum Tag {
     Prop,
+    BeginNode,
     EndNode,
     End,
     Magic,
@@ -52,11 +54,20 @@ impl<'a> DeviceTreeParser<'a> {
 
     fn tag(&mut self) -> Result<Tag> {
         match try!(self.buf.read_u32_le()) {
+            0x01 => Ok(Tag::BeginNode),
             0x02 => Ok(Tag::EndNode),
             0x03 => Ok(Tag::Prop),
             0x09 => Ok(Tag::End),
             0xd00dfeed => Ok(Tag::Magic),
-            _ => Err(ParseError::InvalidTagError),
+            _ => Err(ParseError::InvalidTag),
+        }
+    }
+
+    fn expect_tag(&mut self, tag: Tag) -> Result<Tag> {
+        if try!(self.tag()) != tag {
+            Err(ParseError::UnexpectedTag)
+        } else {
+            Ok(tag)
         }
     }
 
@@ -109,11 +120,7 @@ impl<'a> DeviceTreeParser<'a> {
         };
 
         // read structure first
-        try!(self.buf.seek(off_dt_struct as usize));
-        println!("{:?}", self.buf.read_byte());
-        println!("{:?}", self.buf.read_byte());
-        println!("{:?}", self.buf.read_byte());
-        println!("{:?}", self.buf.read_byte());
+        try!(self.expect_tag(Tag::BeginNode));
 
         Ok(DeviceTree{
             header: header
