@@ -286,7 +286,19 @@ struct DeviceTreeHeader {
     size_dt_struct: u32,
 }
 
-
+impl fmt::Display for DeviceTree {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,
+               "device tree (version {}, compat {}, boot cpu {}), {} bytes\n\
+               / {:?}"
+               ,
+               self.header.version,
+               self.header.last_comp_version,
+               self.header.boot_cpuid_phys,
+               self.header.totalsize,
+               self.root)
+    }
+}
 
 fn main() {
     let matches = clap::App::new("device-tree-parser")
@@ -307,7 +319,7 @@ fn main() {
 
     match parser.parse() {
         Ok(result) => {
-            println!("OK {:?}", result);
+            println!("{}", result);
         },
         Err(e) => {
             println!("{:?} @ {:#X}", e, parser.pos());
