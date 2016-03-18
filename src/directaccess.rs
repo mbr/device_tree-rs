@@ -4,12 +4,14 @@ use core::{fmt, result};
 use util::be_u32;
 
 const MAGIC_NUMBER: u32 = 0xd00dfeed;
+const SUPPORTED_VERSION: u32 = 17;
 
 #[derive(Debug)]
 pub enum DeviceTreeError {
     CantFitHeader,
     NoMagicNumberFound,
     SizeMismatch,
+    UnsupportedVersion,
 }
 
 pub type Result<T> = result::Result<T, DeviceTreeError>;
@@ -60,6 +62,11 @@ impl<'a> DeviceTree<'a> {
             if header.total_size() != buffer.len() {
                 return Err(DeviceTreeError::SizeMismatch);
             }
+
+            if header.version() != SUPPORTED_VERSION &&
+               header.last_comp_version() != SUPPORTED_VERSION {
+                return Err(DeviceTreeError::UnsupportedVersion)
+           }
         }
 
         Ok(dt)
