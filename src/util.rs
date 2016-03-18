@@ -1,9 +1,11 @@
 use core::result;
 
+#[derive(Debug)]
 pub enum MiniStreamReadError {
     ReadPastEnd
 }
 
+#[derive(Debug)]
 pub struct MiniStream<'a>{
     buf: &'a [u8],
     pos: usize,
@@ -41,6 +43,16 @@ impl<'a> MiniStream<'a> {
               |(val << 24)  & 0xff000000)
         } else {
             Err(MiniStreamReadError::ReadPastEnd)
+        }
+    }
+
+    pub fn seek(&mut self, position: usize)
+    -> result::Result<(), MiniStreamReadError> {
+        if position >= self.buf.len() {
+            Err(MiniStreamReadError::ReadPastEnd)
+        } else {
+            self.pos = position;
+            Ok(())
         }
     }
 }

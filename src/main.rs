@@ -19,7 +19,8 @@ use std::io::Read;
 #[derive(Debug)]
 enum ParseError {
     InvalidMagic,
-    ReadError
+    ReadError,
+    InvalidTagError,
 }
 
 type Result<T> = result::Result<T, ParseError>;
@@ -34,6 +35,14 @@ struct DeviceTree {
     header: DeviceTreeHeader
 }
 
+#[derive(Debug, PartialEq)]
+enum Tag {
+    Prop,
+    EndNode,
+    End,
+    Magic,
+}
+
 impl<'a> DeviceTreeParser<'a> {
     pub fn new(buf: &'a [u8]) -> DeviceTreeParser<'a> {
         DeviceTreeParser{
@@ -41,11 +50,19 @@ impl<'a> DeviceTreeParser<'a> {
         }
     }
 
+    fn tag(&mut self) -> Result<Tag> {
+        match try!(self.buf.read_u32_le()) {
+            0x02 => Ok(Tag::EndNode),
+            0x03 => Ok(Tag::Prop),
+            0x09 => Ok(Tag::End),
+            0xd00dfeed => Ok(Tag::Magic),
+            _ => Err(ParseError::InvalidTagError),
+        }
+    }
+
     pub fn parse(&mut self) -> Result<DeviceTree> {
         // // first, read the header
-        let magic = try!(self.buf.read_u32_le());
-
-        if magic != 0xd00dfeed {
+        if try!(self.tag()) != Tag::Magic {
             return Err(ParseError::InvalidMagic);
         }
 
@@ -90,6 +107,13 @@ impl<'a> DeviceTreeParser<'a> {
             // version 17 fields
             size_dt_struct: size_dt_struct,
         };
+
+        // read structure first
+        try!(self.buf.seek(off_dt_struct as usize));
+        println!("{:?}", self.buf.read_byte());
+        println!("{:?}", self.buf.read_byte());
+        println!("{:?}", self.buf.read_byte());
+        println!("{:?}", self.buf.read_byte());
 
         Ok(DeviceTree{
             header: header
