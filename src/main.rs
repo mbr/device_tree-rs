@@ -25,5 +25,5 @@ fn main() {
     input.read_to_end(&mut buf).unwrap();
 
     let dt = directaccess::DeviceTree::new(buf.as_slice()).unwrap();
-    println!("MAGIC NUMBER {:?}", dt.header());
+    println!("{:?}", dt.header());
 }

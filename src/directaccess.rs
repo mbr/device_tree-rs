@@ -18,7 +18,6 @@ pub struct DeviceTree<'a> {
     buffer: &'a [u8]
 }
 
-#[derive(Debug)]
 pub struct Header {
     magic_number: u32,
 
@@ -113,5 +112,20 @@ impl Header {
 
     fn size_dt_struct(&self) -> u32 {
         be_u32(self.size_dt_struct)
+    }
+}
+
+impl fmt::Debug for Header {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Header {{ magic_number: {:#x}, total_size: {}, \
+                            off_dt_struct: {}, off_dt_strings: {}, \
+                            off_mem_rsvmap: {}, version: {}, \
+                            last_comp_version: {}, boot_cpuid_phys: {}, \
+                            size_dt_strings: {}, size_dt_struct: {}, \
+                    }}", self.magic_number(), self.total_size(),
+                         self.off_dt_struct(), self.off_dt_strings(),
+                         self.off_mem_rsvmap(), self.version(),
+                         self.last_comp_version(), self.boot_cpuid_phys(),
+                         self.size_dt_strings(), self.size_dt_struct())
     }
 }
