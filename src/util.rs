@@ -1,4 +1,4 @@
-use core::{mem, result};
+use core::result;
 
 #[derive(Debug)]
 pub enum MiniStreamReadError {

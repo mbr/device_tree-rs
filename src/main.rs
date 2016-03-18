@@ -47,6 +47,7 @@ struct Property {
 
 #[derive(Debug)]
 struct Structure {
+    name: Vec<u8>,
     properties: Vec<Property>,
     children: Vec<Structure>,
 }
@@ -105,7 +106,7 @@ impl<'a> DeviceTreeParser<'a> {
         let t = try!(self.peek_tag());
 
         if t == tag {
-            self.tag();
+            try!(self.tag());
             Ok(true)
         } else {
             Ok(false)
@@ -143,13 +144,15 @@ impl<'a> DeviceTreeParser<'a> {
     }
 
     fn structure(&mut self) -> Result<Option<Structure>> {
-        let mut rs = Structure{
-            properties: Vec::new(),
-            children: Vec::new(),
-        };
 
         if try!(self.accept_tag(Tag::BeginNode)) {
             let name = try!(self.block_string0()).to_owned();
+            let mut rs = Structure{
+                properties: Vec::new(),
+                children: Vec::new(),
+                name: name,
+            };
+
             while try!(self.accept_tag(Tag::Property)) {
                 let prop_data_len = try!(self.buf.read_u32_le());
 
@@ -161,7 +164,7 @@ impl<'a> DeviceTreeParser<'a> {
                 );
 
                 // re-align to 4 byte blocks
-                self.buf.align();
+                try!(self.buf.align());
 
                 let prop_val_name = try!(
                     self.far_string0(prop_name_offset as usize)
@@ -184,7 +187,7 @@ impl<'a> DeviceTreeParser<'a> {
             }
 
             // proper end node needed
-            self.expect_tag(Tag::EndNode);
+            try!(self.expect_tag(Tag::EndNode));
 
             Ok(Some(rs))
         } else {
