@@ -38,11 +38,27 @@ struct DeviceTree {
 
 #[derive(Debug, PartialEq)]
 enum Tag {
-    Prop,
+    Property,
     BeginNode,
     EndNode,
     End,
     Magic,
+}
+
+impl Tag {
+    fn from_u32(val: u32) -> Result<Tag> {
+        match val {
+            0x01 => Ok(Tag::BeginNode),
+            0x02 => Ok(Tag::EndNode),
+            0x03 => Ok(Tag::Property),
+            0x09 => Ok(Tag::End),
+            0xd00dfeed => Ok(Tag::Magic),
+            _ => {
+                println!("INVALID TAG {:#X}", val);
+                Err(ParseError::InvalidTag)
+            },
+        }
+    }
 }
 
 impl<'a> DeviceTreeParser<'a> {
@@ -57,13 +73,21 @@ impl<'a> DeviceTreeParser<'a> {
     }
 
     fn tag(&mut self) -> Result<Tag> {
-        match try!(self.buf.read_u32_le()) {
-            0x01 => Ok(Tag::BeginNode),
-            0x02 => Ok(Tag::EndNode),
-            0x03 => Ok(Tag::Prop),
-            0x09 => Ok(Tag::End),
-            0xd00dfeed => Ok(Tag::Magic),
-            _ => Err(ParseError::InvalidTag),
+        Ok(try!(Tag::from_u32(try!(self.buf.read_u32_le()))))
+    }
+
+    fn peek_tag(&self) -> Result<Tag> {
+        Ok(try!(Tag::from_u32(try!(self.buf.peek_u32_le()))))
+    }
+
+    fn accept_tag(&mut self, tag: Tag) -> Result<bool> {
+        let t = try!(self.peek_tag());
+
+        if t == tag {
+            self.tag();
+            Ok(true)
+        } else {
+            Ok(false)
         }
     }
 
@@ -93,7 +117,30 @@ impl<'a> DeviceTreeParser<'a> {
         }
 
         try!(self.buf.seek(start));
-        Ok(try!(self.buf.read_bytes(num_blocks * 4 - offset)))
+        let data = try!(self.buf.read_bytes(num_blocks * 4));
+        Ok(&data[..data.len()-offset])
+    }
+
+    fn structure(&mut self) -> Result<Option<()>> {
+        if try!(self.accept_tag(Tag::BeginNode)) {
+            let name = try!(self.string0()).to_owned();
+            println!("NAME {:?}", name);
+
+            println!("AFTER NAME POS IS {:#x}", self.pos());
+            while try!(self.accept_tag(Tag::Property)) {
+                let val_size = try!(self.buf.read_u32_le());
+                let val_offset = try!(self.buf.read_u32_le());
+
+                // specs unclear, now following "proeprty value data if any"
+                let val_data = try!(self.string0());
+                println!("FOUND PROPERTY {} {} {:?}",
+                        val_size, val_offset, val_data);
+            }
+            println!("Done READING PROPS");
+            Ok(Some(()))
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn parse(&mut self) -> Result<DeviceTree> {
@@ -144,8 +191,12 @@ impl<'a> DeviceTreeParser<'a> {
             size_dt_struct: size_dt_struct,
         };
 
+        println!("{:?}",header);
+
         // read structure first
-        try!(self.expect_tag(Tag::BeginNode));
+        try!(self.buf.seek(off_dt_struct as usize));
+        try!(self.structure());
+
 
         Ok(DeviceTree{
             header: header
@@ -191,5 +242,5 @@ fn main() {
 
     let mut parser = DeviceTreeParser::new(&mut buf);
 
-    println!("{:?}", parser.parse());
+    println!("{:?} @ {:#X}", parser.parse(), parser.pos());
 }
