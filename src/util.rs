@@ -16,13 +16,6 @@ pub fn be_u32(raw: u32) -> u32 {
     raw
 }
 
-pub fn from_utf8_safe(v: &[u8]) -> &str {
-    match str::from_utf8(v) {
-        Ok(s) => s,
-        Err(_) => "(invalid utf8)"
-    }
-}
-
 pub enum SliceReadError {
     UnexpectedEndOfInput,
 }
