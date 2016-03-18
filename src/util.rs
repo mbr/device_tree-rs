@@ -1,4 +1,6 @@
-use core::result;
+use core::{fmt, result, str};
+
+use parser::Node;
 
 #[derive(Debug)]
 pub enum MiniStreamReadError {
@@ -106,4 +108,35 @@ impl<'a> MiniStream<'a> {
             Ok(())
         }
     }
+}
+
+pub fn from_utf8_safe(v: &[u8]) -> &str {
+    match str::from_utf8(v) {
+        Ok(s) => s,
+        Err(_) => "utf8!invalid"
+    }
+}
+
+pub fn display_node(node: &Node, f: &mut fmt::Formatter, indent: u32)
+-> fmt::Result  {
+    let mut indt = String::new();
+    for _ in 0..indent {
+        indt = indt + "   ";
+    }
+
+    if node.name.len() == 0 {
+        try!(write!(f, "{}|- /\n", indt));
+    } else {
+        try!(write!(f, "{}|- {:?}\n", indt, from_utf8_safe(&node.name)));
+    }
+
+    for prop in node.properties.iter() {
+        try!(write!(f, "{}   {:?}\n", indt, prop));
+    }
+
+    for child in node.children.iter() {
+        try!(display_node(child, f, indent + 1))
+    }
+
+    Ok(())
 }
