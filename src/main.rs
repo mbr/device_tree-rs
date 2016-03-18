@@ -90,7 +90,7 @@ impl<'a> DeviceTreeParser<'a> {
             // version 17 fields
             size_dt_struct: size_dt_struct,
         };
-        println!("header {:?}", header);
+
         Ok(DeviceTree{
             header: header
         })
