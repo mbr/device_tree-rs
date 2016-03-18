@@ -1,14 +1,12 @@
-extern crate byteorder;
 extern crate core;
 extern crate clap;
 
-use byteorder::{ByteOrder, BigEndian, ReadBytesExt};
 use core::result;
 pub mod util;
 use util::{MiniStream, MiniStreamReadError};
 
 impl From<MiniStreamReadError> for ParseError {
-    fn from(e: MiniStreamReadError) -> ParseError {
+    fn from(_: MiniStreamReadError) -> ParseError {
         ParseError::ReadError
     }
 }
@@ -31,6 +29,11 @@ struct DeviceTreeParser<'a>
     buf: MiniStream<'a>,
 }
 
+#[derive(Debug)]
+struct DeviceTree {
+    header: DeviceTreeHeader
+}
+
 impl<'a> DeviceTreeParser<'a> {
     pub fn new(buf: &'a [u8]) -> DeviceTreeParser<'a> {
         DeviceTreeParser{
@@ -38,7 +41,7 @@ impl<'a> DeviceTreeParser<'a> {
         }
     }
 
-    pub fn parse<E: ByteOrder>(&mut self) -> Result<()> {
+    pub fn parse(&mut self) -> Result<DeviceTree> {
         // // first, read the header
         let magic = try!(self.buf.read_u32_le());
 
@@ -88,7 +91,9 @@ impl<'a> DeviceTreeParser<'a> {
             size_dt_struct: size_dt_struct,
         };
         println!("header {:?}", header);
-        Ok(())
+        Ok(DeviceTree{
+            header: header
+        })
     }
 }
 
@@ -126,9 +131,9 @@ fn main() {
     let mut input = fs::File::open(matches.value_of("input_file").unwrap())
                                   .unwrap();
     let mut buf = Vec::new();
-    input.read_to_end(&mut buf);
+    input.read_to_end(&mut buf).unwrap();
 
     let mut parser = DeviceTreeParser::new(&mut buf);
 
-    println!("{:?}", parser.parse::<BigEndian>());
+    println!("{:?}", parser.parse());
 }
