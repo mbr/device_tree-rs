@@ -52,6 +52,10 @@ impl<'a> DeviceTreeParser<'a> {
         }
     }
 
+    pub fn pos(&self) -> usize {
+        self.buf.pos()
+    }
+
     fn tag(&mut self) -> Result<Tag> {
         match try!(self.buf.read_u32_le()) {
             0x01 => Ok(Tag::BeginNode),
@@ -69,6 +73,27 @@ impl<'a> DeviceTreeParser<'a> {
         } else {
             Ok(tag)
         }
+    }
+
+    fn string0(&mut self) -> Result<&[u8]> {
+        let start = self.buf.pos();
+        let mut num_blocks = 0;
+        let mut offset;
+
+        'search: loop {
+            let block = try!(self.buf.read_bytes(4));
+            num_blocks += 1;
+
+            for i in 0..4 {
+                if block[i] == 0 {
+                    offset = 4-i;
+                    break 'search;
+                }
+            }
+        }
+
+        try!(self.buf.seek(start));
+        Ok(try!(self.buf.read_bytes(num_blocks * 4 - offset)))
     }
 
     pub fn parse(&mut self) -> Result<DeviceTree> {
