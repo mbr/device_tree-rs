@@ -37,7 +37,7 @@ struct DeviceTreeParser<'a>
 #[derive(Debug)]
 struct DeviceTree {
     header: DeviceTreeHeader,
-    root: Structure,
+    root: Node,
 }
 
 struct Property {
@@ -46,10 +46,10 @@ struct Property {
 }
 
 #[derive(Debug)]
-struct Structure {
+struct Node {
     name: Vec<u8>,
     properties: Vec<Property>,
-    children: Vec<Structure>,
+    children: Vec<Node>,
 }
 
 impl fmt::Debug for Property {
@@ -143,10 +143,10 @@ impl<'a> DeviceTreeParser<'a> {
         Ok(&data[..data.len()-offset])
     }
 
-    fn structure(&mut self) -> Result<Option<Structure>> {
+    fn Node(&mut self) -> Result<Option<Node>> {
         if try!(self.accept_tag(Tag::BeginNode)) {
             let name = try!(self.block_string0()).to_owned();
-            let mut rs = Structure{
+            let mut rs = Node{
                 properties: Vec::new(),
                 children: Vec::new(),
                 name: name,
@@ -178,7 +178,7 @@ impl<'a> DeviceTreeParser<'a> {
 
             // after properties, read child nodes
             loop {
-                if let Some(child) = try!(self.structure()) {
+                if let Some(child) = try!(self.Node()) {
                     rs.children.push(child)
                 } else {
                     break
@@ -254,10 +254,10 @@ impl<'a> DeviceTreeParser<'a> {
             size_dt_struct: size_dt_struct,
         };
 
-        // read structure first
+        // read Node first
         try!(self.buf.seek(off_dt_struct as usize));
 
-        match try!(self.structure()) {
+        match try!(self.Node()) {
             None => Err(ParseError::NoRootFound),
             Some(root) => Ok(DeviceTree{
                 header: header,
