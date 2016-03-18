@@ -1,7 +1,7 @@
 use core::mem::size_of;
-use core::{fmt, result};
+use core::{fmt, result, str};
 
-use util::be_u32;
+use util::{be_u32, SliceReader};
 
 const MAGIC_NUMBER: u32 = 0xd00dfeed;
 const SUPPORTED_VERSION: u32 = 17;
@@ -12,6 +12,8 @@ pub enum DeviceTreeError {
     NoMagicNumberFound,
     SizeMismatch,
     UnsupportedVersion,
+    RunawayString,
+    Utf8Error,
 }
 
 pub type Result<T> = result::Result<T, DeviceTreeError>;
@@ -38,6 +40,18 @@ pub struct Header {
 
     // version 17 fields
     size_dt_struct: u32,
+}
+
+pub struct Node<'a> {
+    buffer: &'a [u8],
+    start: usize,
+    name_len: usize,
+}
+
+impl From<str::Utf8Error> for DeviceTreeError {
+    fn from(e: str::Utf8Error) -> DeviceTreeError {
+        DeviceTreeError::Utf8Error
+    }
 }
 
 impl<'a> DeviceTree<'a> {
@@ -77,6 +91,10 @@ impl<'a> DeviceTree<'a> {
         unsafe {
             &*(self.buffer.as_ptr() as *const Header)
         }
+    }
+
+    pub fn root(&self) -> Result<Node> {
+        Node::new(self.buffer, self.header().off_dt_struct())
     }
 }
 
@@ -134,5 +152,50 @@ impl fmt::Debug for Header {
                          self.off_mem_rsvmap(), self.version(),
                          self.last_comp_version(), self.boot_cpuid_phys(),
                          self.size_dt_strings(), self.size_dt_struct())
+    }
+}
+
+impl<'a> Node<'a> {
+    pub fn new(buffer: &'a [u8], start: usize) -> Result<Node<'a>> {
+        // determine name length
+        let mut pos = start;
+        let name_len;
+        loop {
+            if buffer[pos] == 0 {
+                name_len = pos - start;
+                break
+            }
+
+            pos += 1;
+            if pos == buffer.len() {
+                return Err(DeviceTreeError::RunawayString)
+            }
+        }
+
+        Ok(Node{
+            buffer: buffer,
+            start: start,
+            name_len: name_len,
+        })
+    }
+
+    pub fn name(&self) -> Result<&'a str> {
+        Ok(try!(str::from_utf8(self.name_bytes())))
+    }
+
+    pub fn name_bytes(&self) -> &'a [u8] {
+        &self.buffer[self.start..(self.start + self.name_len)]
+    }
+}
+
+impl<'a> fmt::Debug for Node<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut name = self.name().unwrap_or("INVALID NAME");
+        if name == "" {
+            // root node has no name
+            name = "/"
+        };
+
+        write!(f, "{}", name)
     }
 }

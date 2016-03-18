@@ -26,4 +26,5 @@ fn main() {
 
     let dt = directaccess::DeviceTree::new(buf.as_slice()).unwrap();
     println!("{:?}", dt.header());
+    println!("{:?}", dt.root().unwrap());
 }
