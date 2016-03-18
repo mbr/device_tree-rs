@@ -1,23 +1,9 @@
 use core::mem::size_of;
-use core::result;
+use core::{fmt, result};
+
+use util::be_u32;
 
 const MAGIC_NUMBER: u32 = 0xd00dfeed;
-
-// helper function to convert to big endian
-#[cfg(target_endian = "little")]
-#[inline]
-fn be_u32(raw: u32) -> u32 {
-    ((raw >> 24) & 0xff
-     |(raw >> 8) & 0xff00
-     |(raw << 8) & 0xff0000
-     |(raw << 24)  & 0xff000000)
-}
-
-#[cfg(target_endian = "big")]
-#[inline]
-fn be_u32(raw: u32) -> u32 {
-    raw
-}
 
 #[derive(Debug)]
 pub enum DeviceTreeError {
