@@ -1,8 +1,7 @@
 extern crate core;
 extern crate clap;
 
-pub mod util;
-pub mod parser;
+pub mod directaccess;
 
 // we only use std::fs in our commandline frontend. the parser uses libcore
 // only
@@ -24,14 +23,6 @@ fn main() {
     let mut buf = Vec::new();
     input.read_to_end(&mut buf).unwrap();
 
-    let mut parser = parser::DeviceTreeParser::new(&mut buf);
-
-    match parser.parse() {
-        Ok(result) => {
-            println!("{}", result);
-        },
-        Err(e) => {
-            println!("{:?} @ {:#X}", e, parser.pos());
-        }
-    }
+    let dt = directaccess::DeviceTree::new(buf.as_slice()).unwrap();
+    println!("MAGIC NUMBER {:?}", dt.header());
 }
