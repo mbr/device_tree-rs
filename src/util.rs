@@ -19,11 +19,6 @@ impl<'a> MiniStream<'a> {
         }
     }
 
-    pub fn read_byte(&mut self) -> result::Result<u8, MiniStreamReadError> {
-        if self.pos+1 < self.buf.len() {
-            let byte = self.buf[self.pos];
-            self.pos += 1;
-            Ok(byte)
         } else {
             Err(MiniStreamReadError::ReadPastEnd)
         }
