@@ -3,47 +3,115 @@ extern crate core;
 extern crate clap;
 
 use byteorder::{ByteOrder, BigEndian, ReadBytesExt};
-use core::{io, result};
-use std::fs;
+use core::result;
 
+enum MiniStreamReadError {
+    ReadPastEnd
+}
+
+struct MiniStream<'a>{
+    buf: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> MiniStream<'a> {
+    fn new(buf: &'a [u8]) -> MiniStream<'a> {
+        MiniStream{
+            buf: buf,
+            pos: 0,
+        }
+    }
+
+    fn read_byte(&mut self) -> result::Result<u8, MiniStreamReadError> {
+        if self.pos+1 < self.buf.len() {
+            let byte = self.buf[self.pos];
+            self.pos += 1;
+            Ok(byte)
+        } else {
+            Err(MiniStreamReadError::ReadPastEnd)
+        }
+    }
+
+    fn read_u32_le(&mut self) -> result::Result<u32, MiniStreamReadError> {
+        if self.pos + 4 < self.buf.len() {
+            let val: u32 = unsafe {
+                *(self.buf[self.pos..(self.pos+4)].as_ptr() as *const u32)
+            };
+            self.pos += 4;
+
+            // FIXME: determine endianness and properly convert
+            Ok((val >> 24) & 0xff
+              |(val >> 8) & 0xff00
+              |(val << 8) & 0xff0000
+              |(val << 24)  & 0xff000000)
+        } else {
+            Err(MiniStreamReadError::ReadPastEnd)
+        }
+    }
+}
+
+impl From<MiniStreamReadError> for ParseError {
+    fn from(e: MiniStreamReadError) -> ParseError {
+        ParseError::ReadError
+    }
+}
+
+// we only use std::fs in our commandline frontend. the parser uses libcore
+// only
+use std::fs;
+use std::io::Read;
+
+#[derive(Debug)]
 enum ParseError {
-    InvalidMagic
+    InvalidMagic,
+    ReadError
 }
 
 type Result<T> = result::Result<T, ParseError>;
 
 struct DeviceTreeParser<'a>
 {
-    f: &'a mut fs::File,
+    buf: MiniStream<'a>,
 }
 
 impl<'a> DeviceTreeParser<'a> {
-    pub fn new(f: &'a mut fs::File) -> DeviceTreeParser<'a> {
+    pub fn new(buf: &'a [u8]) -> DeviceTreeParser<'a> {
         DeviceTreeParser{
-            f: f,
+            buf: MiniStream::new(buf),
         }
     }
 
     pub fn parse<E: ByteOrder>(&mut self) -> Result<()> {
-        // first, read the header
-        let magic = try!(self.f.read_u32::<E>());
+        // // first, read the header
+        let magic = try!(self.buf.read_u32_le());
 
-        let totalsize = self.f.read_u32::<E>().unwrap();
+        if magic != 0xd00dfeed {
+            return Err(ParseError::InvalidMagic);
+        }
 
-        let off_dt_struct = 0;
-        let off_dt_strings = 0;
-        let off_mem_rsvmap = 0;
-        let version = 0;
-        let last_comp_version = 0;
+        let totalsize = try!(self.buf.read_u32_le());
+        let off_dt_struct = try!(self.buf.read_u32_le());
+        let off_dt_strings = try!(self.buf.read_u32_le());
+        let off_mem_rsvmap = try!(self.buf.read_u32_le());
+        let version = try!(self.buf.read_u32_le());
+        let last_comp_version = try!(self.buf.read_u32_le());
 
-        // version 2 fields
-        let boot_cpuid_phys = 0;
+        let mut boot_cpuid_phys = 0;
+        if version > 2 {
+            boot_cpuid_phys = try!(self.buf.read_u32_le());
+        }
 
         // version 3 fields
-        let size_dt_strings = 0;
+        let mut size_dt_strings = 0;
+        if version > 3 {
+            size_dt_strings = try!(self.buf.read_u32_le())
+        }
 
         // version 17 fields
-        let size_dt_struct = 0;
+        let mut size_dt_struct = 0;
+        if version > 17 {
+            size_dt_struct = try!(self.buf.read_u32_le());
+        }
 
         let header = DeviceTreeHeader{
             totalsize: totalsize,
@@ -63,6 +131,7 @@ impl<'a> DeviceTreeParser<'a> {
             size_dt_struct: size_dt_struct,
         };
         println!("header {:?}", header);
+        Ok(())
     }
 }
 
@@ -101,7 +170,6 @@ fn main() {
                                   .unwrap();
     let mut buf = Vec::new();
     input.read_to_end(&mut buf);
-
 
     let mut parser = DeviceTreeParser::new(&mut buf);
 
