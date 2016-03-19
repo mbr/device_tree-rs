@@ -53,12 +53,12 @@ pub struct Node<'a> {
     name_end: usize,
 }
 
-struct PropertyIter<'a> {
+pub struct PropertyIter<'a> {
     buffer: &'a [u8],
     pos: usize,
 }
 
-struct Property<'a> {
+pub struct Property<'a> {
     buffer: &'a [u8],
     start: usize,
 }
@@ -74,6 +74,7 @@ impl From<SliceReadError> for DeviceTreeError {
         DeviceTreeError::SliceReadError
     }
 }
+
 
 impl<'a> DeviceTree<'a> {
     pub fn new(buffer: &'a [u8]) -> Result<DeviceTree<'a>> {
@@ -118,6 +119,7 @@ impl<'a> DeviceTree<'a> {
         Node::new(self.buffer, self.header().off_dt_struct())
     }
 }
+
 
 impl Header {
     fn magic_number(&self) -> u32 {
@@ -177,6 +179,37 @@ impl fmt::Debug for Header {
 }
 
 
+impl<'a> Node<'a> {
+    pub fn new(buffer: &'a [u8], start: usize) -> Result<Node<'a>> {
+        if try!(buffer.read_be_u32(start)) != OF_DT_BEGIN_NODE {
+            return Err(DeviceTreeError::InvalidTag)
+        }
+
+        let name = try!(buffer.read_bstring0(start+4));
+        let name_end = start + 4 + name.len();
+
+        Ok(Node{
+            buffer: buffer,
+            start: start,
+            name_end: name_end,
+        })
+    }
+
+    pub fn name(&self) -> Result<&'a str> {
+        Ok(try!(str::from_utf8(self.name_bytes())))
+    }
+
+    pub fn name_bytes(&self) -> &'a [u8] {
+        let begin = self.start + 4;
+        &self.buffer[begin..self.name_end]
+    }
+
+    pub fn props(&self) -> PropertyIter<'a> {
+        PropertyIter::new(self.buffer, align(self.name_end + 1, 4))
+    }
+}
+
+
 impl<'a> PropertyIter<'a> {
     fn new(buffer: &'a [u8], pos: usize) -> PropertyIter<'a> {
         PropertyIter{
@@ -196,7 +229,6 @@ impl<'a> iter::Iterator for PropertyIter<'a> {
         }
 
         let val_size = trysome!(self.buffer.read_be_u32(self.pos + 4)) as usize;
-        // ignore the name offset, Property will read it iself
 
         // at pos+12, the value starts
         let prop_end = self.pos + 12 + val_size;
@@ -215,34 +247,13 @@ impl<'a> iter::Iterator for PropertyIter<'a> {
     }
 }
 
-impl<'a> Node<'a> {
-    pub fn new(buffer: &'a [u8], start: usize) -> Result<Node<'a>> {
-        if try!(buffer.read_be_u32(start)) != OF_DT_BEGIN_NODE {
-            return Err(DeviceTreeError::InvalidTag)
-        }
-
-        let name = try!(buffer.read_bstring0(start+4));
-        let name_end = start + 4 + name.len();
-
-        // after 0 byte, align to 4-byte boundary
-        let prop_start = align(name_end + 1, 4);
-
-        Ok(Node{
-            buffer: buffer,
-            start: start,
-            name_end: name_end,
-        })
-    }
-
-    pub fn name(&self) -> Result<&'a str> {
-        Ok(try!(str::from_utf8(self.name_bytes())))
-    }
-
-    pub fn name_bytes(&self) -> &'a [u8] {
-        let begin = self.start + 4;
-        &self.buffer[begin..self.name_end]
+impl<'a> Property<'a> {
+    pub fn name(&'a self) -> Result<&'a [u8]> {
+        let name_offset = try!(self.buffer.read_be_u32(self.start+8)) as usize;
+        Ok(try!(self.buffer.read_bstring0(name_offset)))
     }
 }
+
 
 impl<'a> fmt::Debug for Node<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
