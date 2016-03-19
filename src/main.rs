@@ -3,6 +3,7 @@ extern crate clap;
 
 #[macro_use]
 pub mod util;
+pub mod parser2;
 
 pub mod directaccess;
 
@@ -27,7 +28,6 @@ fn main() {
     let mut buf = Vec::new();
     input.read_to_end(&mut buf).unwrap();
 
-    let dt = directaccess::DeviceTree::new(buf.as_slice()).unwrap();
-    println!("{:?}", dt.header());
-    println!("{:?}", dt.root().unwrap());
+    let dt = parser2::DeviceTree::load(buf.as_slice ()).unwrap ();
+    println!("{:?}", dt);
 }

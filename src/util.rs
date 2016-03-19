@@ -21,6 +21,7 @@ pub fn align(val: usize, to: usize) -> usize {
     val + (to - (val % to)) % to
 }
 
+#[derive(Debug)]
 pub enum SliceReadError {
     UnexpectedEndOfInput,
 }
@@ -35,7 +36,7 @@ pub trait SliceRead {
 impl<'a> SliceRead for &'a [u8] {
     fn read_be_u32(&self, pos: usize) -> SliceReadResult<u32> {
         // check size is valid
-        if ! pos+4 < self.len() {
+        if ! (pos+4 < self.len()) {
             return Err(SliceReadError::UnexpectedEndOfInput)
         }
 

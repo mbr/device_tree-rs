@@ -272,16 +272,6 @@ impl<'a> Property<'a> {
 }
 
 
-impl<'a> iter::Iterator for ChildNodeIter<'a> {
-    type Item = Result<Node<'a>>;
-
-    fn next(&mut self) -> Option<Result<Node<'a>>> {
-        // FIXME: Bad Idea
-        None
-    }
-}
-
-
 impl<'a> fmt::Debug for Node<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut name = self.name().unwrap_or("INVALID NAME");
