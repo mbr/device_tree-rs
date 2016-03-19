@@ -51,6 +51,7 @@ pub struct Node<'a> {
     tree: &'a DeviceTree<'a>,
     start: usize,
     name_end: usize,
+    sub_start: usize,
 }
 
 pub struct PropertyIter<'a> {
@@ -62,6 +63,11 @@ pub struct Property<'a> {
     tree: &'a DeviceTree<'a>,
     start: usize,
     val_size: usize,
+}
+
+pub struct ChildNodeIter<'a> {
+    tree:  &'a DeviceTree<'a>,
+    pos: usize,
 }
 
 impl From<str::Utf8Error> for DeviceTreeError {
@@ -189,11 +195,21 @@ impl<'a> Node<'a> {
         let name = try!(tree.buffer.read_bstring0(start+4));
         let name_end = start + 4 + name.len();
 
-        Ok(Node{
+        let mut node = Node{
             tree: tree,
             start: start,
             name_end: name_end,
-        })
+            sub_start: 0,
+        };
+
+        // find start of subnode section by iterator over all the props
+        let mut prop_iter = node.props();
+        while let Some(_) = prop_iter.next() {
+
+        }
+        node.sub_start = prop_iter.pos;
+
+        Ok(node)
     }
 
     pub fn name(&self) -> Result<&'a str> {
@@ -252,6 +268,16 @@ impl<'a> Property<'a> {
 
     pub fn data(&'a self) -> Result<&'a [u8]> {
         Ok(&self.tree.buffer[self.start+12..self.start+12+self.val_size])
+    }
+}
+
+
+impl<'a> iter::Iterator for ChildNodeIter<'a> {
+    type Item = Result<Node<'a>>;
+
+    fn next(&mut self) -> Option<Result<Node<'a>>> {
+        // FIXME: Bad Idea
+        None
     }
 }
 
