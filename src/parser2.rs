@@ -36,6 +36,7 @@ pub enum DeviceTreeError {
 pub struct DeviceTree {
     version: u32,
     boot_cpuid_phys: u32,
+    reserved: Vec<(u64, u64)>,
     root: Node,
 }
 
@@ -97,13 +98,32 @@ impl DeviceTree {
 
         let off_dt_struct = try!(buffer.read_be_u32(8)) as usize;
         let off_dt_strings = try!(buffer.read_be_u32(12)) as usize;
+        let off_mem_rsvmap = try!(buffer.read_be_u32(16)) as usize;
         let boot_cpuid_phys = try!(buffer.read_be_u32(28));
+
+        // load reserved memory list
+        let mut reserved = Vec::new();
+        let mut pos = off_mem_rsvmap;
+
+        loop {
+            let offset = try!(buffer.read_be_u64(pos));
+            pos += 8;
+            let size = try!(buffer.read_be_u64(pos));
+            pos += 8;
+
+            reserved.push((offset, size));
+
+            if size == 0 {
+                break;
+            }
+        }
 
         let (_, root) = try!(Node::load(buffer, off_dt_struct, off_dt_strings));
 
         Ok(DeviceTree{
             version: version,
             boot_cpuid_phys: boot_cpuid_phys,
+            reserved: reserved,
             root: root,
         })
     }
