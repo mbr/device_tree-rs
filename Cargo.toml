@@ -2,6 +2,8 @@
 name = "device_tree"
 version = "1.0.0"
 authors = ["Marc Brinkmann <git@marcbrinkmann.de>"]
+license = "MIT"
+description = "Reads and parses Linux device tree images"
 
 [dependencies]
 clap = "^2.2.1"
