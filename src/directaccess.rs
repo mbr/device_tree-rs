@@ -206,19 +206,13 @@ impl<'a> Node<'a> {
     }
 
     pub fn props(&self) -> PropertyIter<'a> {
-        PropertyIter::new(self.tree, align(self.name_end + 1, 4))
-    }
-}
-
-
-impl<'a> PropertyIter<'a> {
-    fn new(tree: &'a DeviceTree<'a>, pos: usize) -> PropertyIter<'a> {
         PropertyIter{
-            tree: tree,
-            pos: pos,
+            tree: self.tree,
+            pos: align(self.name_end + 1, 4)
         }
     }
 }
+
 
 impl<'a> iter::Iterator for PropertyIter<'a> {
     type Item = Result<Property<'a>>;
