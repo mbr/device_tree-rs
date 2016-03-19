@@ -44,6 +44,7 @@ pub struct DeviceTree {
 pub struct Node {
     name: String,
     props: Vec<(String, Vec<u8>)>,
+    children: Vec<Node>,
 }
 
 
@@ -98,7 +99,7 @@ impl DeviceTree {
         let off_dt_strings = try!(buffer.read_be_u32(12)) as usize;
         let boot_cpuid_phys = try!(buffer.read_be_u32(28));
 
-        let root = try!(Node::load(buffer, off_dt_struct, off_dt_strings));
+        let (_, root) = try!(Node::load(buffer, off_dt_struct, off_dt_strings));
 
         Ok(DeviceTree{
             version: version,
@@ -111,7 +112,7 @@ impl DeviceTree {
 
 impl Node {
     fn load(buffer: &[u8], start: usize, off_dt_strings: usize)
-    -> Result<Node, DeviceTreeError> {
+    -> Result<(usize, Node), DeviceTreeError> {
         // check for DT_BEGIN_NODE
         if try!(buffer.read_be_u32(start)) != OF_DT_BEGIN_NODE {
             return Err(DeviceTreeError::ParseError(start))
@@ -146,10 +147,27 @@ impl Node {
             pos = align(val_end, 4);
         }
 
+        // finally, parse children
+        let mut children = Vec::new();
 
-        Ok(Node{
+        while try!(buffer.read_be_u32(pos)) == OF_DT_BEGIN_NODE {
+            let (new_pos, child_node) = try!(Node::load(buffer, pos,
+                off_dt_strings));
+            pos = new_pos;
+
+            children.push(child_node);
+        }
+
+        if try!(buffer.read_be_u32(pos)) != OF_DT_END_NODE {
+            return Err(DeviceTreeError::ParseError(pos))
+        }
+
+        pos += 4;
+
+        Ok((pos, Node{
             name: try!(str::from_utf8(raw_name)).to_owned(),
             props: props,
-        })
+            children: children,
+        }))
     }
 }
