@@ -1,8 +1,11 @@
 extern crate core;
 extern crate clap;
 
-pub mod directaccess;
+#[macro_use]
 pub mod util;
+
+pub mod directaccess;
+
 
 // we only use std::fs in our commandline frontend. the parser uses libcore
 // only

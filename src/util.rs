@@ -1,4 +1,4 @@
-use core::str;
+pub use core::{convert, option, result, str};
 
 // helper function to convert to big endian
 #[cfg(target_endian = "little")]
@@ -59,4 +59,16 @@ impl<'a> SliceRead for &'a [u8] {
 
         Err(SliceReadError::UnexpectedEndOfInput)
     }
+}
+
+#[macro_export]
+macro_rules! trysome {
+    ($expr:expr) => (match $expr {
+        ::core::result::Result::Ok(val) => val,
+        ::core::result::Result::Err(err) => {
+            return ::core::option::Option::Some(
+                ::core::result::Result::Err(::core::convert::From::from (err))
+            )
+        }
+    })
 }

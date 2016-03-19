@@ -1,11 +1,13 @@
 use core::mem::size_of;
-use core::{fmt, result, str};
+use core::{fmt, iter, result, str};
 
-use util::{be_u32, SliceRead, SliceReadError};
+use util::{align, be_u32, SliceRead, SliceReadError};
 
-const MAGIC_NUMBER: u32 = 0xd00dfeed;
+const MAGIC_NUMBER     : u32 = 0xd00dfeed;
 const SUPPORTED_VERSION: u32 = 17;
-const OF_DT_BEGIN_NODE: u32 = 0x01;
+const OF_DT_BEGIN_NODE : u32 = 0x00000001;
+const OF_DT_END_NODE   : u32 = 0x00000002;
+const OF_DT_PROP       : u32 = 0x00000003;
 
 #[derive(Debug)]
 pub enum DeviceTreeError {
@@ -49,6 +51,16 @@ pub struct Node<'a> {
     buffer: &'a [u8],
     start: usize,
     name_end: usize,
+}
+
+struct PropertyIter<'a> {
+    buffer: &'a [u8],
+    pos: usize,
+}
+
+struct Property<'a> {
+    buffer: &'a [u8],
+    start: usize,
 }
 
 impl From<str::Utf8Error> for DeviceTreeError {
@@ -164,6 +176,45 @@ impl fmt::Debug for Header {
     }
 }
 
+
+impl<'a> PropertyIter<'a> {
+    fn new(buffer: &'a [u8], pos: usize) -> PropertyIter<'a> {
+        PropertyIter{
+            buffer: buffer,
+            pos: pos,
+        }
+    }
+}
+
+impl<'a> iter::Iterator for PropertyIter<'a> {
+    type Item = Result<Property<'a>>;
+
+    fn next(&mut self) -> Option<Result<Property<'a>>> {
+        // look for opening tag
+        if trysome!(self.buffer.read_be_u32(self.pos)) != OF_DT_PROP {
+            return None  // no opening tag, so no property
+        }
+
+        let val_size = trysome!(self.buffer.read_be_u32(self.pos + 4)) as usize;
+        // ignore the name offset, Property will read it iself
+
+        // at pos+12, the value starts
+        let prop_end = self.pos + 12 + val_size;
+        if ! prop_end < self.buffer.len() {
+            return Some(Err(DeviceTreeError::SizeMismatch));
+        }
+
+        let prop = Property{
+            buffer: self.buffer,
+            start: self.pos
+        };
+
+        self.pos = align(prop_end, 4);
+
+        Some(Ok(prop))
+    }
+}
+
 impl<'a> Node<'a> {
     pub fn new(buffer: &'a [u8], start: usize) -> Result<Node<'a>> {
         if try!(buffer.read_be_u32(start)) != OF_DT_BEGIN_NODE {
@@ -171,11 +222,15 @@ impl<'a> Node<'a> {
         }
 
         let name = try!(buffer.read_bstring0(start+4));
+        let name_end = start + 4 + name.len();
+
+        // after 0 byte, align to 4-byte boundary
+        let prop_start = align(name_end + 1, 4);
 
         Ok(Node{
             buffer: buffer,
             start: start,
-            name_end: start + 4 + name.len(),
+            name_end: name_end,
         })
     }
 
