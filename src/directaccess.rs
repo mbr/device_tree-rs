@@ -61,6 +61,7 @@ pub struct PropertyIter<'a> {
 pub struct Property<'a> {
     buffer: &'a [u8],
     start: usize,
+    val_size: usize,
 }
 
 impl From<str::Utf8Error> for DeviceTreeError {
@@ -238,7 +239,8 @@ impl<'a> iter::Iterator for PropertyIter<'a> {
 
         let prop = Property{
             buffer: self.buffer,
-            start: self.pos
+            start: self.pos,
+            val_size: val_size,
         };
 
         self.pos = align(prop_end, 4);
@@ -251,6 +253,10 @@ impl<'a> Property<'a> {
     pub fn name(&'a self) -> Result<&'a [u8]> {
         let name_offset = try!(self.buffer.read_be_u32(self.start+8)) as usize;
         Ok(try!(self.buffer.read_bstring0(name_offset)))
+    }
+
+    pub fn data(&'a self) -> Result<&'a [u8]> {
+        Ok(&self.buffer[self.start+12..self.start+12+self.val_size])
     }
 }
 
