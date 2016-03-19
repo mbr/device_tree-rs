@@ -48,18 +48,18 @@ pub struct Header {
 }
 
 pub struct Node<'a> {
-    buffer: &'a [u8],
+    tree: &'a DeviceTree<'a>,
     start: usize,
     name_end: usize,
 }
 
 pub struct PropertyIter<'a> {
-    buffer: &'a [u8],
+    tree: &'a DeviceTree<'a>,
     pos: usize,
 }
 
 pub struct Property<'a> {
-    buffer: &'a [u8],
+    tree: &'a DeviceTree<'a>,
     start: usize,
     val_size: usize,
 }
@@ -117,7 +117,7 @@ impl<'a> DeviceTree<'a> {
     }
 
     pub fn root(&self) -> Result<Node> {
-        Node::new(self.buffer, self.header().off_dt_struct())
+        Node::new(self, self.header().off_dt_struct())
     }
 }
 
@@ -181,16 +181,16 @@ impl fmt::Debug for Header {
 
 
 impl<'a> Node<'a> {
-    pub fn new(buffer: &'a [u8], start: usize) -> Result<Node<'a>> {
-        if try!(buffer.read_be_u32(start)) != OF_DT_BEGIN_NODE {
+    pub fn new(tree: &'a DeviceTree<'a>, start: usize) -> Result<Node<'a>> {
+        if try!(tree.buffer.read_be_u32(start)) != OF_DT_BEGIN_NODE {
             return Err(DeviceTreeError::InvalidTag)
         }
 
-        let name = try!(buffer.read_bstring0(start+4));
+        let name = try!(tree.buffer.read_bstring0(start+4));
         let name_end = start + 4 + name.len();
 
         Ok(Node{
-            buffer: buffer,
+            tree: tree,
             start: start,
             name_end: name_end,
         })
@@ -202,19 +202,19 @@ impl<'a> Node<'a> {
 
     pub fn name_bytes(&self) -> &'a [u8] {
         let begin = self.start + 4;
-        &self.buffer[begin..self.name_end]
+        &self.tree.buffer[begin..self.name_end]
     }
 
     pub fn props(&self) -> PropertyIter<'a> {
-        PropertyIter::new(self.buffer, align(self.name_end + 1, 4))
+        PropertyIter::new(self.tree, align(self.name_end + 1, 4))
     }
 }
 
 
 impl<'a> PropertyIter<'a> {
-    fn new(buffer: &'a [u8], pos: usize) -> PropertyIter<'a> {
+    fn new(tree: &'a DeviceTree<'a>, pos: usize) -> PropertyIter<'a> {
         PropertyIter{
-            buffer: buffer,
+            tree: tree,
             pos: pos,
         }
     }
@@ -225,20 +225,20 @@ impl<'a> iter::Iterator for PropertyIter<'a> {
 
     fn next(&mut self) -> Option<Result<Property<'a>>> {
         // look for opening tag
-        if trysome!(self.buffer.read_be_u32(self.pos)) != OF_DT_PROP {
+        if trysome!(self.tree.buffer.read_be_u32(self.pos)) != OF_DT_PROP {
             return None  // no opening tag, so no property
         }
 
-        let val_size = trysome!(self.buffer.read_be_u32(self.pos + 4)) as usize;
+        let val_size = trysome!(self.tree.buffer.read_be_u32(self.pos + 4)) as usize;
 
         // at pos+12, the value starts
         let prop_end = self.pos + 12 + val_size;
-        if ! prop_end < self.buffer.len() {
+        if ! prop_end < self.tree.buffer.len() {
             return Some(Err(DeviceTreeError::SizeMismatch));
         }
 
         let prop = Property{
-            buffer: self.buffer,
+            tree: self.tree,
             start: self.pos,
             val_size: val_size,
         };
@@ -251,12 +251,12 @@ impl<'a> iter::Iterator for PropertyIter<'a> {
 
 impl<'a> Property<'a> {
     pub fn name(&'a self) -> Result<&'a [u8]> {
-        let name_offset = try!(self.buffer.read_be_u32(self.start+8)) as usize;
-        Ok(try!(self.buffer.read_bstring0(name_offset)))
+        let name_offset = try!(self.tree.buffer.read_be_u32(self.start+8)) as usize;
+        Ok(try!(self.tree.buffer.read_bstring0(name_offset)))
     }
 
     pub fn data(&'a self) -> Result<&'a [u8]> {
-        Ok(&self.buffer[self.start+12..self.start+12+self.val_size])
+        Ok(&self.tree.buffer[self.start+12..self.start+12+self.val_size])
     }
 }
 
