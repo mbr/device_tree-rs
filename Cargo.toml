@@ -1,6 +1,6 @@
 [package]
 name = "device_tree"
-version = "0.3.0"
+version = "1.0.0"
 authors = ["Marc Brinkmann <git@marcbrinkmann.de>"]
 
 [dependencies]
