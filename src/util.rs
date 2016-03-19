@@ -1,4 +1,4 @@
-pub use core::{convert, option, result, str};
+pub use core::{convert, fmt, option, result, str};
 
 // helper function to convert to big endian
 #[cfg(target_endian = "little")]
@@ -58,6 +58,35 @@ impl<'a> SliceRead for &'a [u8] {
         }
 
         Err(SliceReadError::UnexpectedEndOfInput)
+    }
+}
+
+pub struct SmartFmt<'a> (pub &'a [u8]);
+
+impl<'a> fmt::Display for SmartFmt<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut ascii = true;
+        for c in self.0.iter() {
+            if *c > 126 || *c < 32 && *c != 0 {
+                ascii = false;
+                break;
+            }
+        }
+
+        if ascii {
+            write!(f, "\"{}\"", unsafe { str::from_utf8_unchecked(self.0) })
+        } else {
+            match self.0.len() {
+                1 | 2 | 4 | 8 => {
+                    try!(write!(f, "0x"));
+                    for c in self.0.iter() {
+                        try!(write!(f, "{:02x}", c));
+                    }
+                    Ok(())
+                },
+                _ => write!(f, "{:?}", self.0)
+            }
+        }
     }
 }
 

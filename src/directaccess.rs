@@ -1,7 +1,7 @@
 use core::mem::size_of;
 use core::{fmt, iter, result, str};
 
-use util::{align, be_u32, SliceRead, SliceReadError};
+use util::{align, be_u32, SliceRead, SliceReadError, SmartFmt};
 
 const MAGIC_NUMBER     : u32 = 0xd00dfeed;
 const SUPPORTED_VERSION: u32 = 17;
@@ -269,6 +269,21 @@ impl<'a> fmt::Debug for Node<'a> {
             name = "/"
         };
 
-        write!(f, "{}", name)
+        try!(write!(f, "o {}\n", name));
+
+        for prop in self.props() {
+            let prefix = "  | - ";
+
+            if let Ok(p) = prop {
+                let pname = p.name().unwrap_or(b"NOT FOUND");
+                let pdata = p.data().unwrap_or(b"NOT DF");
+                try!(write!(f, "  | - {} = {}\n",
+                     SmartFmt(pname), SmartFmt(pdata)))
+            } else{
+                try!(write!(f, "{} (broken property)", prefix));
+            }
+        }
+
+        Ok(())
     }
 }
