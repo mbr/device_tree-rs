@@ -1,3 +1,7 @@
+extern crate core;
+
+mod util;
+
 use core::str;
 use util::{align, SliceRead, SliceReadError};
 
