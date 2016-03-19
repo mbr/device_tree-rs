@@ -31,6 +31,7 @@ pub type SliceReadResult<T> = Result<T, SliceReadError>;
 pub trait SliceRead {
     fn read_be_u32(&self, pos: usize) -> SliceReadResult<u32>;
     fn read_bstring0(&self, pos: usize) -> SliceReadResult<&[u8]>;
+    fn subslice(&self, start: usize, len: usize) -> SliceReadResult<&[u8]>;
 }
 
 impl<'a> SliceRead for &'a [u8] {
@@ -59,6 +60,14 @@ impl<'a> SliceRead for &'a [u8] {
         }
 
         Err(SliceReadError::UnexpectedEndOfInput)
+    }
+
+    fn subslice(&self, start: usize, end: usize) -> SliceReadResult<&[u8]> {
+        if ! (end < self.len()) {
+            return Err(SliceReadError::UnexpectedEndOfInput)
+        }
+
+        Ok(&self[start..end])
     }
 }
 

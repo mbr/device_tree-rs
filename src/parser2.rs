@@ -1,4 +1,5 @@
-use util::{SliceRead, SliceReadError};
+use core::str;
+use util::{align, SliceRead, SliceReadError};
 
 const MAGIC_NUMBER     : u32 = 0xd00dfeed;
 const SUPPORTED_VERSION: u32 = 17;
@@ -23,6 +24,10 @@ pub enum DeviceTreeError {
     /// The data format was not as expected at the given position
     ParseError(usize),
 
+    /// While trying to convert a string that was supposed to be ascii, invalid
+    /// utf8 sequences were encounted
+    Utf8Error,
+
     /// The device tree version is not supported by this library.
     VersionNotSupported,
 }
@@ -37,7 +42,8 @@ pub struct DeviceTree {
 
 #[derive(Debug)]
 pub struct Node {
-    name: Vec<u8>,
+    name: String,
+    props: Vec<(String, Vec<u8>)>,
 }
 
 
@@ -47,6 +53,11 @@ impl From<SliceReadError> for DeviceTreeError {
     }
 }
 
+impl From<str::Utf8Error> for DeviceTreeError {
+    fn from(_: str::Utf8Error) -> DeviceTreeError {
+        DeviceTreeError::Utf8Error
+    }
+}
 
 impl DeviceTree {
     pub fn load(buffer: &[u8]) -> Result<DeviceTree, DeviceTreeError> {
@@ -87,7 +98,7 @@ impl DeviceTree {
         let off_dt_strings = try!(buffer.read_be_u32(12)) as usize;
         let boot_cpuid_phys = try!(buffer.read_be_u32(28));
 
-        let root = try!(Node::load(buffer, off_dt_struct));
+        let root = try!(Node::load(buffer, off_dt_struct, off_dt_strings));
 
         Ok(DeviceTree{
             version: version,
@@ -99,16 +110,46 @@ impl DeviceTree {
 
 
 impl Node {
-    fn load(buffer: &[u8], start: usize) -> Result<Node, DeviceTreeError> {
+    fn load(buffer: &[u8], start: usize, off_dt_strings: usize)
+    -> Result<Node, DeviceTreeError> {
         // check for DT_BEGIN_NODE
         if try!(buffer.read_be_u32(start)) != OF_DT_BEGIN_NODE {
             return Err(DeviceTreeError::ParseError(start))
         }
 
-        let name = try!(buffer.read_bstring0(start+4)).to_owned();
+        let raw_name = try!(buffer.read_bstring0(start+4));
+
+        // read all the props
+        let mut pos = align(start + 4 + raw_name.len() + 1, 4);
+
+        let mut props = Vec::new();
+
+        while try!(buffer.read_be_u32(pos)) == OF_DT_PROP {
+            let val_size = try!(buffer.read_be_u32(pos+4)) as usize;
+            let name_offset = try!(buffer.read_be_u32(pos+8)) as usize;
+
+            // get value slice
+            let val_start = pos + 12;
+            let val_end = val_start + val_size;
+            let val = try!(buffer.subslice(val_start, val_end));
+
+            // lookup name in strings table
+            let prop_name = try!(
+                buffer.read_bstring0(off_dt_strings + name_offset)
+            );
+
+            props.push((
+                try!(str::from_utf8(prop_name)).to_owned(),
+                val.to_owned(),
+            ));
+
+            pos = align(val_end, 4);
+        }
+
 
         Ok(Node{
-            name: name
+            name: try!(str::from_utf8(raw_name)).to_owned(),
+            props: props,
         })
     }
 }
