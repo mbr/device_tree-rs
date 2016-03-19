@@ -246,7 +246,8 @@ impl<'a> iter::Iterator for PropertyIter<'a> {
 impl<'a> Property<'a> {
     pub fn name(&'a self) -> Result<&'a [u8]> {
         let name_offset = try!(self.tree.buffer.read_be_u32(self.start+8)) as usize;
-        Ok(try!(self.tree.buffer.read_bstring0(name_offset)))
+        Ok(try!(self.tree.buffer.read_bstring0(
+            self.tree.header().off_dt_strings() + name_offset)))
     }
 
     pub fn data(&'a self) -> Result<&'a [u8]> {
