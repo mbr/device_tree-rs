@@ -1,21 +1,5 @@
 pub use core::{convert, fmt, option, result, str};
 
-// helper function to convert to big endian
-#[cfg(target_endian = "little")]
-#[inline]
-pub fn be_u32(raw: u32) -> u32 {
-    ((raw >> 24) & 0xff
-     |(raw >> 8) & 0xff00
-     |(raw << 8) & 0xff0000
-     |(raw << 24)  & 0xff000000)
-}
-
-#[cfg(target_endian = "big")]
-#[inline]
-pub fn be_u32(raw: u32) -> u32 {
-    raw
-}
-
 #[inline]
 pub fn align(val: usize, to: usize) -> usize {
     val + (to - (val % to)) % to
@@ -88,45 +72,4 @@ impl<'a> SliceRead for &'a [u8] {
 
         Ok(&self[start..end])
     }
-}
-
-pub struct SmartFmt<'a> (pub &'a [u8]);
-
-impl<'a> fmt::Display for SmartFmt<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut ascii = true;
-        for c in self.0.iter() {
-            if *c > 126 || *c < 32 && *c != 0 {
-                ascii = false;
-                break;
-            }
-        }
-
-        if ascii {
-            write!(f, "\"{}\"", unsafe { str::from_utf8_unchecked(self.0) })
-        } else {
-            match self.0.len() {
-                1 | 2 | 4 | 8 => {
-                    try!(write!(f, "0x"));
-                    for c in self.0.iter() {
-                        try!(write!(f, "{:02x}", c));
-                    }
-                    Ok(())
-                },
-                _ => write!(f, "{:?}", self.0)
-            }
-        }
-    }
-}
-
-#[macro_export]
-macro_rules! trysome {
-    ($expr:expr) => (match $expr {
-        ::core::result::Result::Ok(val) => val,
-        ::core::result::Result::Err(err) => {
-            return ::core::option::Option::Some(
-                ::core::result::Result::Err(::core::convert::From::from (err))
-            )
-        }
-    })
 }

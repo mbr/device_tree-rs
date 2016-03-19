@@ -1,6 +1,6 @@
 extern crate core;
 
-mod util;
+pub mod util;
 
 use core::str;
 use util::{align, SliceRead, SliceReadError};
