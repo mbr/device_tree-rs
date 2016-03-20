@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["SliceReadError",""]],"fn":[["align",""]],"mod":[["convert","Traits for conversions between types."],["fmt","Utilities for formatting and printing strings"],["option","Optional values"],["result","Error handling with the `Result` type"],["str","String manipulation"]],"trait":[["SliceRead",""]],"type":[["SliceReadResult",""]]});
