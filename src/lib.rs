@@ -8,9 +8,9 @@
 //! This library allows parsing the so-called flattened device trees, which
 //! are the compiled binary forms of these trees.
 //!
-//! To read more about device trees, check out [the kernel docs](https://git.
-//! kernel.org/cgit/linux/kernel/git/torvalds/linux.git/plain/Documentation
-//! /devicetree/booting-without-of.txt?id=HEAD). Some example device trees
+//! To read more about device trees, check out
+//! [the kernel docs](https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/plain/Documentation/devicetree/booting-without-of.txt?id=HEAD).
+//! Some example device trees
 //! to try out are [the Raspberry Pi ones]
 //! (https://github.com/raspberrypi/firmware/tree/master/boot).
 //!
