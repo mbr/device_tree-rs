@@ -1,3 +1,35 @@
+//! Parse flattened linux device trees
+//!
+//! Device trees are used to describe a lot of hardware, especially in the ARM
+//! embedded world and are also used to boot Linux on these device. A device
+//! tree describes addresses and other attributes for many parts on these
+//! boards
+//!
+//! This library allows parsing the so-called flattened device trees, which
+//! are the compiled binary forms of these trees.
+//!
+//! To read more about device trees, check out [the kernel docs](https://git.
+//! kernel.org/cgit/linux/kernel/git/torvalds/linux.git/plain/Documentation
+//! /devicetree/booting-without-of.txt?id=HEAD). Some example device trees
+//! to try out are [the Raspberry Pi ones]
+//! (https://github.com/raspberrypi/firmware/tree/master/boot).
+//!
+//! The library does not use `std`, just `core`.
+//!
+//! # Examples
+//!
+//! ```ignore
+//! fn main() {
+//!     // read file into memory
+//!     let mut input = fs::File::open("sample.dtb").unwrap();
+//!     let mut buf = Vec::new();
+//!     input.read_to_end(&mut buf).unwrap();
+//!
+//!     let dt = device_tree::DeviceTree::load(buf.as_slice ()).unwrap();
+//!     println!("{:?}", dt);
+//! }
+//! ```
+
 extern crate core;
 
 pub mod util;
@@ -12,6 +44,7 @@ const OF_DT_END_NODE   : u32 = 0x00000002;
 const OF_DT_PROP       : u32 = 0x00000003;
 
 
+/// An error describe parsing problems when creating device trees.
 #[derive(Debug)]
 pub enum DeviceTreeError {
     /// The magic number `MAGIC_NUMBER` was not found at the start of the
@@ -28,7 +61,7 @@ pub enum DeviceTreeError {
     /// The data format was not as expected at the given position
     ParseError(usize),
 
-    /// While trying to convert a string that was supposed to be ascii, invalid
+    /// While trying to convert a string that was supposed to be ASCII, invalid
     /// utf8 sequences were encounted
     Utf8Error,
 
@@ -36,20 +69,34 @@ pub enum DeviceTreeError {
     VersionNotSupported,
 }
 
+/// Device tree structure.
 #[derive(Debug)]
 pub struct DeviceTree {
-    version: u32,
-    boot_cpuid_phys: u32,
-    reserved: Vec<(u64, u64)>,
-    root: Node,
+    /// Version, as indicated by version header
+    pub version: u32,
+
+    /// The number of the CPU the system boots from
+    pub boot_cpuid_phys: u32,
+
+    /// A list of tuples of `(offset, length)`, indicating reserved memory
+    // regions.
+    pub reserved: Vec<(u64, u64)>,
+
+    /// The root node.
+    pub root: Node,
 }
 
-
+/// A single node in the device tree.
 #[derive(Debug)]
 pub struct Node {
-    name: String,
-    props: Vec<(String, Vec<u8>)>,
-    children: Vec<Node>,
+    /// The name of the node, as it appears in the node path.
+    pub name: String,
+
+    /// A list of node properties, `(key, value)`.
+    pub props: Vec<(String, Vec<u8>)>,
+
+    /// Child nodes of this node.
+    pub children: Vec<Node>,
 }
 
 
@@ -66,6 +113,7 @@ impl From<str::Utf8Error> for DeviceTreeError {
 }
 
 impl DeviceTree {
+    //! Load a device tree from a memory buffer.
     pub fn load(buffer: &[u8]) -> Result<DeviceTree, DeviceTreeError> {
         //  0  magic_number: u32,
 
