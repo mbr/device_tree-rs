@@ -99,6 +99,12 @@ pub struct Node {
     pub children: Vec<Node>,
 }
 
+#[derive(Debug)]
+pub enum PropError {
+    NotFound,
+    Utf8Error,
+    Missing0,
+}
 
 impl From<SliceReadError> for DeviceTreeError {
     fn from(e: SliceReadError) -> DeviceTreeError {
@@ -273,5 +279,32 @@ impl Node {
             },
             None => self.children.iter().find(|n| n.name == path)
         }
+    }
+
+    pub fn prop_str<'a>(&'a self, name: &str) -> Result<&'a str, PropError> {
+        let raw = try!(self.prop_raw(name).ok_or(PropError::NotFound));
+
+        let l = raw.len();
+        if l < 1 || raw[l-1] != 0 {
+            return Err(PropError::Missing0)
+        }
+
+        Ok(try!(str::from_utf8(&raw[..(l-1)])))
+    }
+
+    pub fn prop_raw<'a>(&'a self, name: &str) -> Option<&'a Vec<u8>> {
+        for &(ref key, ref val) in self.props.iter() {
+            if key == name {
+                return Some(val)
+            }
+        }
+        None
+    }
+
+}
+
+impl From<str::Utf8Error> for PropError {
+    fn from(_: str::Utf8Error) -> PropError {
+        PropError::Utf8Error
     }
 }
