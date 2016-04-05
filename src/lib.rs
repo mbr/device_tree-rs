@@ -259,6 +259,10 @@ impl Node {
     }
 
     pub fn find<'a>(&'a self, path: &str) -> Option<&'a Node> {
+        if path == "" {
+            return Some(self)
+        }
+
         match path.find('/') {
             Some(idx) => {
                 // find should return the proper index, so we're safe to
