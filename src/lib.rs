@@ -179,6 +179,15 @@ impl DeviceTree {
             root: root,
         })
     }
+
+    pub fn find<'a>(&'a self, path: &str) -> Option<&'a Node> {
+        // we only find root nodes on the device tree
+        if ! path.starts_with('/') {
+            return None
+        }
+
+        self.root.find(&path[1..])
+    }
 }
 
 
@@ -241,5 +250,28 @@ impl Node {
             props: props,
             children: children,
         }))
+    }
+
+    pub fn find<'a>(&'a self, path: &str) -> Option<&'a Node> {
+        match path.find('/') {
+            Some(idx) => {
+                // find should return the proper index, so we're safe to
+                // use indexing here
+                let (l, r) = path.split_at(idx);
+
+                // we know that the first char of slashed is a '/'
+                let subpath = &r[1..];
+
+                for child in self.children.iter() {
+                    if child.name == l {
+                        return child.find(subpath);
+                    }
+                }
+
+                // no matching child found
+                None
+            },
+            None => self.children.iter().find(|n| n.name == path)
+        }
     }
 }
