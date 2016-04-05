@@ -104,6 +104,7 @@ pub enum PropError {
     NotFound,
     Utf8Error,
     Missing0,
+    SliceReadError(SliceReadError),
 }
 
 impl From<SliceReadError> for DeviceTreeError {
@@ -305,10 +306,27 @@ impl Node {
         None
     }
 
+    pub fn prop_u64(&self, name: &str) -> Result<u64, PropError> {
+        let raw = try!(self.prop_raw(name).ok_or(PropError::NotFound));
+
+        Ok(try!(raw.as_slice().read_be_u64(0)))
+    }
+
+    pub fn prop_u32(&self, name: &str) -> Result<u32, PropError> {
+        let raw = try!(self.prop_raw(name).ok_or(PropError::NotFound));
+
+        Ok(try!(raw.as_slice().read_be_u32(0)))
+    }
 }
 
 impl From<str::Utf8Error> for PropError {
     fn from(_: str::Utf8Error) -> PropError {
         PropError::Utf8Error
+    }
+}
+
+impl From<SliceReadError> for PropError {
+    fn from(e: SliceReadError) -> PropError {
+        PropError::SliceReadError(e)
     }
 }
