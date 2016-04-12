@@ -286,6 +286,14 @@ impl Node {
         }
     }
 
+    pub fn has_prop(&self, name: &str) -> bool {
+        if let Some(_) = self.prop_raw(name) {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn prop_str<'a>(&'a self, name: &str) -> Result<&'a str, PropError> {
         let raw = try!(self.prop_raw(name).ok_or(PropError::NotFound));
 
