@@ -75,7 +75,7 @@ pub enum DeviceTreeError {
 }
 
 /// Device tree structure.
-#[derive(Debug)]
+#[derive(Debug,PartialEq)]
 pub struct DeviceTree {
     /// Version, as indicated by version header
     pub version: u32,
@@ -92,7 +92,7 @@ pub struct DeviceTree {
 }
 
 /// A single node in the device tree.
-#[derive(Debug)]
+#[derive(Debug,PartialEq)]
 pub struct Node {
     /// The name of the node, as it appears in the node path.
     pub name: String,
@@ -512,5 +512,34 @@ impl From<str::Utf8Error> for PropError {
 impl From<SliceReadError> for PropError {
     fn from(e: SliceReadError) -> PropError {
         PropError::SliceReadError(e)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::fs;
+    use std::io::{Read, Write};
+
+    use super::*;
+
+    #[test]
+    fn roundtrip() {
+        // read file into memory
+        let buf = include_bytes!("../examples/bcm2709-rpi-2-b.dtb");
+        let original_fdt = DeviceTree::load(buf).unwrap();
+
+        let dtb = original_fdt.store().unwrap();
+        let mut output = fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open("output.dtb").unwrap();
+        output.write_all(&dtb).unwrap();
+
+        let mut input = fs::File::open("output.dtb").unwrap();
+        let mut buf = Vec::new();
+        input.read_to_end(&mut buf).unwrap();
+        let generated_fdt = DeviceTree::load(buf.as_slice ()).unwrap();
+
+        assert!(original_fdt == generated_fdt);
     }
 }
