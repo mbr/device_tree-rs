@@ -73,3 +73,82 @@ impl<'a> SliceRead for &'a [u8] {
         Ok(&self[start..end])
     }
 }
+
+#[derive(Debug)]
+pub enum VecWriteError {
+    NonContiguousWrite,
+    UnalignedWrite,
+}
+
+pub type VecWriteResult = Result<(), VecWriteError>;
+
+pub trait VecWrite {
+    fn write_be_u32(&mut self, pos: usize, val: u32) -> VecWriteResult;
+    fn write_be_u64(&mut self, pos: usize, val: u64) -> VecWriteResult;
+    fn write_bstring0(&mut self, val: &str) -> VecWriteResult;
+    fn pad(&mut self, alignment: usize) -> VecWriteResult;
+}
+
+impl VecWrite for Vec<u8> {
+    fn write_be_u32(&mut self, pos: usize, val: u32) -> VecWriteResult {
+        if pos % 4 != 0 {
+            return Err(VecWriteError::UnalignedWrite);
+        }
+        if pos > self.len() {
+            return Err(VecWriteError::NonContiguousWrite);
+        }
+        if pos+4 > self.len() {
+            for _ in 0 .. (pos + 4 - self.len()) {
+                self.push(0);
+            }
+        }
+        assert!(pos+3 < self.len());
+        self[pos] = ((val >> 24) & 0xff) as u8;
+        self[pos+1] = ((val >> 16) & 0xff) as u8;
+        self[pos+2] = ((val >> 8) & 0xff) as u8;
+        self[pos+3] = (val & 0xff) as u8;
+        Ok(())
+    }
+
+    fn write_be_u64(&mut self, pos: usize, val: u64) -> VecWriteResult {
+        if pos % 8 != 0 {
+            return Err(VecWriteError::UnalignedWrite);
+        }
+        if pos > self.len() {
+            return Err(VecWriteError::NonContiguousWrite);
+        }
+        if pos > self.len() - 8 {
+            for _ in 0 .. (pos + 8 - self.len()) {
+                self.push(0);
+            }
+        }
+        assert!(pos+7 < self.len());
+        self[pos] = ((val >> 56) & 0xff) as u8;
+        self[pos+1] = ((val >> 48) & 0xff) as u8;
+        self[pos+2] = ((val >> 40) & 0xff) as u8;
+        self[pos+3] = ((val >> 32) & 0xff) as u8;
+        self[pos+4] = ((val >> 24) & 0xff) as u8;
+        self[pos+5] = ((val >> 16) & 0xff) as u8;
+        self[pos+6] = ((val >> 8) & 0xff) as u8;
+        self[pos+7] = (val & 0xff) as u8;
+        Ok(())
+    }
+
+    fn write_bstring0(&mut self, val: &str) -> VecWriteResult {
+        for b in val.bytes() {
+            self.push(b);
+        }
+        self.push(0);
+        Ok(())
+    }
+
+    fn pad(&mut self, alignment: usize) -> VecWriteResult {
+        let misalignment = self.len() % alignment;
+        if misalignment > 0 {
+            for _ in 0 .. (alignment - misalignment) {
+                self.push(0);
+            }
+        }
+        Ok(())
+    }
+}
