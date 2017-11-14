@@ -35,13 +35,15 @@ extern crate core;
 pub mod util;
 
 use core::str;
-use util::{align, SliceRead, SliceReadError};
+use util::{align, SliceRead, SliceReadError, VecWrite, VecWriteError};
 
 const MAGIC_NUMBER     : u32 = 0xd00dfeed;
 const SUPPORTED_VERSION: u32 = 17;
+const COMPAT_VERSION   : u32 = 16;
 const OF_DT_BEGIN_NODE : u32 = 0x00000001;
 const OF_DT_END_NODE   : u32 = 0x00000002;
 const OF_DT_PROP       : u32 = 0x00000003;
+const OF_DT_END        : u32 = 0x00000009;
 
 
 /// An error describe parsing problems when creating device trees.
@@ -67,6 +69,9 @@ pub enum DeviceTreeError {
 
     /// The device tree version is not supported by this library.
     VersionNotSupported,
+
+    /// The device tree structure could not be serialized to DTB
+    VecWriteError(VecWriteError),
 }
 
 /// Device tree structure.
@@ -113,9 +118,34 @@ impl From<SliceReadError> for DeviceTreeError {
     }
 }
 
+impl From<VecWriteError> for DeviceTreeError {
+    fn from(e: VecWriteError) -> DeviceTreeError {
+        DeviceTreeError::VecWriteError(e)
+    }
+}
+
 impl From<str::Utf8Error> for DeviceTreeError {
     fn from(_: str::Utf8Error) -> DeviceTreeError {
         DeviceTreeError::Utf8Error
+    }
+}
+
+pub struct StringTable {
+    buffer: Vec<u8>,
+}
+
+impl StringTable {
+    pub fn new() -> StringTable {
+        StringTable {
+            buffer: Vec::new(),
+        }
+    }
+
+    pub fn add_string(&mut self, val: &str) -> u32 {
+        let offset = self.buffer.len();
+        self.buffer.extend(val.bytes());
+        self.buffer.push(0);
+        offset as u32
     }
 }
 
@@ -194,6 +224,77 @@ impl DeviceTree {
         }
 
         self.root.find(&path[1..])
+    }
+
+    pub fn store<'a>(&'a self) -> Result<Vec<u8>, DeviceTreeError> {
+        let mut dtb = Vec::new();
+        let mut strings = StringTable::new();
+
+        // Magic
+        let len = dtb.len();
+        try!(dtb.write_be_u32(len, MAGIC_NUMBER));
+
+        let size_off = dtb.len();
+        try!(dtb.write_be_u32(size_off, 0)); // Fill in size later
+        let off_dt_struct = dtb.len();
+        try!(dtb.write_be_u32(off_dt_struct, 0)); // Fill in off_dt_struct later
+        let off_dt_strings = dtb.len();
+        try!(dtb.write_be_u32(off_dt_strings, 0)); // Fill in off_dt_strings later
+        let off_mem_rsvmap = dtb.len();
+        try!(dtb.write_be_u32(off_mem_rsvmap, 0)); // Fill in off_mem_rsvmap later
+
+        // Version
+        let len = dtb.len();
+        try!(dtb.write_be_u32(len, SUPPORTED_VERSION));
+        // Last comp version
+        let len = dtb.len();
+        try!(dtb.write_be_u32(len, COMPAT_VERSION));
+        // boot_cpuid_phys
+        let len = dtb.len();
+        try!(dtb.write_be_u32(len, self.boot_cpuid_phys));
+
+        let off_size_strings = dtb.len();
+        try!(dtb.write_be_u32(off_size_strings, 0)); // Fill in size_dt_strings later
+        let off_size_struct = dtb.len();
+        try!(dtb.write_be_u32(off_size_struct, 0)); // Fill in size_dt_struct later
+
+        // Memory Reservation Block
+        try!(dtb.pad(8));
+        let len = dtb.len();
+        try!(dtb.write_be_u32(off_mem_rsvmap, len as u32));
+        for reservation in self.reserved.iter() {
+            // address
+            let len = dtb.len();
+            try!(dtb.write_be_u64(len, reservation.0));
+            // size
+            let len = dtb.len();
+            try!(dtb.write_be_u64(len, reservation.1));
+        }
+
+        // Structure Block
+        try!(dtb.pad(4));
+        let structure_start = dtb.len();
+        try!(dtb.write_be_u32(off_dt_struct, structure_start as u32));
+        try!(self.root.store(&mut dtb, &mut strings));
+
+        try!(dtb.pad(4));
+        let len = dtb.len();
+        try!(dtb.write_be_u32(len, OF_DT_END));
+
+        let len = dtb.len();
+        try!(dtb.write_be_u32(off_size_struct, (len - structure_start) as u32));
+        try!(dtb.write_be_u32(off_size_strings, strings.buffer.len() as u32));
+
+        // Strings Block
+        try!(dtb.pad(4));
+        let len = dtb.len();
+        try!(dtb.write_be_u32(off_dt_strings, len as u32));
+        dtb.extend_from_slice(&strings.buffer);
+
+        let len = dtb.len();
+        try!(dtb.write_be_u32(size_off, len as u32));
+
+        Ok(dtb)
     }
 }
 
@@ -324,6 +425,42 @@ impl Node {
         let raw = try!(self.prop_raw(name).ok_or(PropError::NotFound));
 
         Ok(try!(raw.as_slice().read_be_u32(0)))
+    }
+
+    pub fn store(&self, structure: &mut Vec<u8>, strings: &mut StringTable) -> Result<(), DeviceTreeError> {
+        try!(structure.pad(4));
+        let len = structure.len();
+        try!(structure.write_be_u32(len, OF_DT_BEGIN_NODE));
+
+        try!(structure.write_bstring0(&self.name));
+        for prop in self.props.iter() {
+            try!(structure.pad(4));
+            let len = structure.len();
+            try!(structure.write_be_u32(len, OF_DT_PROP));
+
+            // Write property value length
+            try!(structure.pad(4));
+            let len = structure.len();
+            try!(structure.write_be_u32(len, prop.1.len() as u32));
+
+            // Write name offset
+            try!(structure.pad(4));
+            let len = structure.len();
+            try!(structure.write_be_u32(len, strings.add_string(&prop.0)));
+
+            // Store the property value
+            structure.extend_from_slice(&prop.1);
+        }
+
+        // Recurse on children
+        for child in self.children.iter() {
+            try!(child.store(structure, strings));
+        }
+
+        try!(structure.pad(4));
+        let len = structure.len();
+        try!(structure.write_be_u32(len, OF_DT_END_NODE));
+        Ok(())
     }
 }
 
