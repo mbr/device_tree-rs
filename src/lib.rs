@@ -37,14 +37,13 @@ pub mod util;
 use core::str;
 use util::{align, SliceRead, SliceReadError, VecWrite, VecWriteError};
 
-const MAGIC_NUMBER     : u32 = 0xd00dfeed;
+const MAGIC_NUMBER: u32 = 0xd00dfeed;
 const SUPPORTED_VERSION: u32 = 17;
-const COMPAT_VERSION   : u32 = 16;
-const OF_DT_BEGIN_NODE : u32 = 0x00000001;
-const OF_DT_END_NODE   : u32 = 0x00000002;
-const OF_DT_PROP       : u32 = 0x00000003;
-const OF_DT_END        : u32 = 0x00000009;
-
+const COMPAT_VERSION: u32 = 16;
+const OF_DT_BEGIN_NODE: u32 = 0x00000001;
+const OF_DT_END_NODE: u32 = 0x00000002;
+const OF_DT_PROP: u32 = 0x00000003;
+const OF_DT_END: u32 = 0x00000009;
 
 /// An error describe parsing problems when creating device trees.
 #[derive(Debug)]
@@ -75,7 +74,7 @@ pub enum DeviceTreeError {
 }
 
 /// Device tree structure.
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct DeviceTree {
     /// Version, as indicated by version header
     pub version: u32,
@@ -92,7 +91,7 @@ pub struct DeviceTree {
 }
 
 /// A single node in the device tree.
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Node {
     /// The name of the node, as it appears in the node path.
     pub name: String,
@@ -168,9 +167,7 @@ mod stringtable {
 
     impl StringTable {
         pub fn new() -> StringTable {
-            StringTable {
-                buffer: Vec::new(),
-            }
+            StringTable { buffer: Vec::new() }
         }
 
         pub fn add_string(&mut self, val: &str) -> u32 {
@@ -210,7 +207,7 @@ impl DeviceTree {
         // 36  size_dt_struct: u32,
 
         if try!(buffer.read_be_u32(0)) != MAGIC_NUMBER {
-            return Err(DeviceTreeError::InvalidMagicNumber)
+            return Err(DeviceTreeError::InvalidMagicNumber);
         }
 
         // check total size
@@ -248,7 +245,7 @@ impl DeviceTree {
 
         let (_, root) = try!(Node::load(buffer, off_dt_struct, off_dt_strings));
 
-        Ok(DeviceTree{
+        Ok(DeviceTree {
             version: version,
             boot_cpuid_phys: boot_cpuid_phys,
             reserved: reserved,
@@ -258,8 +255,8 @@ impl DeviceTree {
 
     pub fn find<'a>(&'a self, path: &str) -> Option<&'a Node> {
         // we only find root nodes on the device tree
-        if ! path.starts_with('/') {
-            return None
+        if !path.starts_with('/') {
+            return None;
         }
 
         self.root.find(&path[1..])
@@ -337,16 +334,18 @@ impl DeviceTree {
     }
 }
 
-
 impl Node {
-    fn load(buffer: &[u8], start: usize, off_dt_strings: usize)
-    -> Result<(usize, Node), DeviceTreeError> {
+    fn load(
+        buffer: &[u8],
+        start: usize,
+        off_dt_strings: usize,
+    ) -> Result<(usize, Node), DeviceTreeError> {
         // check for DT_BEGIN_NODE
         if try!(buffer.read_be_u32(start)) != OF_DT_BEGIN_NODE {
-            return Err(DeviceTreeError::ParseError(start))
+            return Err(DeviceTreeError::ParseError(start));
         }
 
-        let raw_name = try!(buffer.read_bstring0(start+4));
+        let raw_name = try!(buffer.read_bstring0(start + 4));
 
         // read all the props
         let mut pos = align(start + 4 + raw_name.len() + 1, 4);
@@ -354,8 +353,8 @@ impl Node {
         let mut props = Vec::new();
 
         while try!(buffer.read_be_u32(pos)) == OF_DT_PROP {
-            let val_size = try!(buffer.read_be_u32(pos+4)) as usize;
-            let name_offset = try!(buffer.read_be_u32(pos+8)) as usize;
+            let val_size = try!(buffer.read_be_u32(pos + 4)) as usize;
+            let name_offset = try!(buffer.read_be_u32(pos + 8)) as usize;
 
             // get value slice
             let val_start = pos + 12;
@@ -363,14 +362,9 @@ impl Node {
             let val = try!(buffer.subslice(val_start, val_end));
 
             // lookup name in strings table
-            let prop_name = try!(
-                buffer.read_bstring0(off_dt_strings + name_offset)
-            );
+            let prop_name = try!(buffer.read_bstring0(off_dt_strings + name_offset));
 
-            props.push((
-                try!(str::from_utf8(prop_name)).to_owned(),
-                val.to_owned(),
-            ));
+            props.push((try!(str::from_utf8(prop_name)).to_owned(), val.to_owned()));
 
             pos = align(val_end, 4);
         }
@@ -379,29 +373,31 @@ impl Node {
         let mut children = Vec::new();
 
         while try!(buffer.read_be_u32(pos)) == OF_DT_BEGIN_NODE {
-            let (new_pos, child_node) = try!(Node::load(buffer, pos,
-                off_dt_strings));
+            let (new_pos, child_node) = try!(Node::load(buffer, pos, off_dt_strings));
             pos = new_pos;
 
             children.push(child_node);
         }
 
         if try!(buffer.read_be_u32(pos)) != OF_DT_END_NODE {
-            return Err(DeviceTreeError::ParseError(pos))
+            return Err(DeviceTreeError::ParseError(pos));
         }
 
         pos += 4;
 
-        Ok((pos, Node{
-            name: try!(str::from_utf8(raw_name)).to_owned(),
-            props: props,
-            children: children,
-        }))
+        Ok((
+            pos,
+            Node {
+                name: try!(str::from_utf8(raw_name)).to_owned(),
+                props: props,
+                children: children,
+            },
+        ))
     }
 
     pub fn find<'a>(&'a self, path: &str) -> Option<&'a Node> {
         if path == "" {
-            return Some(self)
+            return Some(self);
         }
 
         match path.find('/') {
@@ -421,8 +417,8 @@ impl Node {
 
                 // no matching child found
                 None
-            },
-            None => self.children.iter().find(|n| n.name == path)
+            }
+            None => self.children.iter().find(|n| n.name == path),
         }
     }
 
@@ -438,17 +434,17 @@ impl Node {
         let raw = try!(self.prop_raw(name).ok_or(PropError::NotFound));
 
         let l = raw.len();
-        if l < 1 || raw[l-1] != 0 {
-            return Err(PropError::Missing0)
+        if l < 1 || raw[l - 1] != 0 {
+            return Err(PropError::Missing0);
         }
 
-        Ok(try!(str::from_utf8(&raw[..(l-1)])))
+        Ok(try!(str::from_utf8(&raw[..(l - 1)])))
     }
 
     pub fn prop_raw<'a>(&'a self, name: &str) -> Option<&'a Vec<u8>> {
         for &(ref key, ref val) in self.props.iter() {
             if key == name {
-                return Some(val)
+                return Some(val);
             }
         }
         None
@@ -466,7 +462,11 @@ impl Node {
         Ok(try!(raw.as_slice().read_be_u32(0)))
     }
 
-    pub fn store(&self, structure: &mut Vec<u8>, strings: &mut StringTable) -> Result<(), DeviceTreeError> {
+    pub fn store(
+        &self,
+        structure: &mut Vec<u8>,
+        strings: &mut StringTable,
+    ) -> Result<(), DeviceTreeError> {
         try!(structure.pad(4));
         let len = structure.len();
         try!(structure.write_be_u32(len, OF_DT_BEGIN_NODE));
@@ -532,13 +532,14 @@ mod test {
         let mut output = fs::OpenOptions::new()
             .write(true)
             .create(true)
-            .open("output.dtb").unwrap();
+            .open("output.dtb")
+            .unwrap();
         output.write_all(&dtb).unwrap();
 
         let mut input = fs::File::open("output.dtb").unwrap();
         let mut buf = Vec::new();
         input.read_to_end(&mut buf).unwrap();
-        let generated_fdt = DeviceTree::load(buf.as_slice ()).unwrap();
+        let generated_fdt = DeviceTree::load(buf.as_slice()).unwrap();
 
         assert!(original_fdt == generated_fdt);
     }
