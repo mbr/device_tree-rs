@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 pub use core::{convert, fmt, option, result, str};
 
 #[inline]
@@ -26,10 +27,10 @@ impl<'a> SliceRead for &'a [u8] {
             return Err(SliceReadError::UnexpectedEndOfInput);
         }
 
-        Ok(
-            (self[pos] as u32) << 24 | (self[pos + 1] as u32) << 16 | (self[pos + 2] as u32) << 8
-                | (self[pos + 3] as u32),
-        )
+        Ok((self[pos] as u32) << 24
+            | (self[pos + 1] as u32) << 16
+            | (self[pos + 2] as u32) << 8
+            | (self[pos + 3] as u32))
     }
 
     fn read_be_u64(&self, pos: usize) -> SliceReadResult<u64> {
@@ -38,12 +39,14 @@ impl<'a> SliceRead for &'a [u8] {
             return Err(SliceReadError::UnexpectedEndOfInput);
         }
 
-        Ok(
-            (self[pos] as u64) << 56 | (self[pos + 1] as u64) << 48 | (self[pos + 2] as u64) << 40
-                | (self[pos + 3] as u64) << 32 | (self[pos + 4] as u64) << 24
-                | (self[pos + 5] as u64) << 16 | (self[pos + 6] as u64) << 8
-                | (self[pos + 7] as u64),
-        )
+        Ok((self[pos] as u64) << 56
+            | (self[pos + 1] as u64) << 48
+            | (self[pos + 2] as u64) << 40
+            | (self[pos + 3] as u64) << 32
+            | (self[pos + 4] as u64) << 24
+            | (self[pos + 5] as u64) << 16
+            | (self[pos + 6] as u64) << 8
+            | (self[pos + 7] as u64))
     }
 
     fn read_bstring0(&self, pos: usize) -> SliceReadResult<&[u8]> {
