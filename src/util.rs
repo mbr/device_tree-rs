@@ -1,4 +1,5 @@
 pub use core::{convert, fmt, option, result, str};
+use alloc::vec::Vec;
 
 #[inline]
 pub fn align(val: usize, to: usize) -> usize {
