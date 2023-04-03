@@ -206,34 +206,34 @@ impl DeviceTree {
         // // version 17 fields
         // 36  size_dt_struct: u32,
 
-        if r#try!(buffer.read_be_u32(0)) != MAGIC_NUMBER {
+        if buffer.read_be_u32(0)? != MAGIC_NUMBER {
             return Err(DeviceTreeError::InvalidMagicNumber);
         }
 
         // check total size
-        if r#try!(buffer.read_be_u32(4)) as usize != buffer.len() {
+        if buffer.read_be_u32(4)? as usize != buffer.len() {
             return Err(DeviceTreeError::SizeMismatch);
         }
 
         // check version
-        let version = r#try!(buffer.read_be_u32(20));
+        let version = buffer.read_be_u32(20)?;
         if version != SUPPORTED_VERSION {
             return Err(DeviceTreeError::VersionNotSupported);
         }
 
-        let off_dt_struct = r#try!(buffer.read_be_u32(8)) as usize;
-        let off_dt_strings = r#try!(buffer.read_be_u32(12)) as usize;
-        let off_mem_rsvmap = r#try!(buffer.read_be_u32(16)) as usize;
-        let boot_cpuid_phys = r#try!(buffer.read_be_u32(28));
+        let off_dt_struct = buffer.read_be_u32(8)? as usize;
+        let off_dt_strings = buffer.read_be_u32(12)? as usize;
+        let off_mem_rsvmap = buffer.read_be_u32(16)? as usize;
+        let boot_cpuid_phys = buffer.read_be_u32(28)?;
 
         // load reserved memory list
         let mut reserved = Vec::new();
         let mut pos = off_mem_rsvmap;
 
         loop {
-            let offset = r#try!(buffer.read_be_u64(pos));
+            let offset = buffer.read_be_u64(pos)?;
             pos += 8;
-            let size = r#try!(buffer.read_be_u64(pos));
+            let size = buffer.read_be_u64(pos)?;
             pos += 8;
 
             reserved.push((offset, size));
@@ -243,7 +243,7 @@ impl DeviceTree {
             }
         }
 
-        let (_, root) = r#try!(Node::load(buffer, off_dt_struct, off_dt_strings));
+        let (_, root) = Node::load(buffer, off_dt_struct, off_dt_strings)?;
 
         Ok(DeviceTree {
             version: version,
@@ -268,67 +268,67 @@ impl DeviceTree {
 
         // Magic
         let len = dtb.len();
-        r#try!(dtb.write_be_u32(len, MAGIC_NUMBER));
+        dtb.write_be_u32(len, MAGIC_NUMBER)?;
 
         let size_off = dtb.len();
-        r#try!(dtb.write_be_u32(size_off, 0)); // Fill in size later
+        dtb.write_be_u32(size_off, 0)?; // Fill in size later
         let off_dt_struct = dtb.len();
-        r#try!(dtb.write_be_u32(off_dt_struct, 0)); // Fill in off_dt_struct later
+        dtb.write_be_u32(off_dt_struct, 0)?; // Fill in off_dt_struct later
         let off_dt_strings = dtb.len();
-        r#try!(dtb.write_be_u32(off_dt_strings, 0)); // Fill in off_dt_strings later
+        dtb.write_be_u32(off_dt_strings, 0)?; // Fill in off_dt_strings later
         let off_mem_rsvmap = dtb.len();
-        r#try!(dtb.write_be_u32(off_mem_rsvmap, 0)); // Fill in off_mem_rsvmap later
+        dtb.write_be_u32(off_mem_rsvmap, 0)?; // Fill in off_mem_rsvmap later
 
         // Version
         let len = dtb.len();
-        r#try!(dtb.write_be_u32(len, SUPPORTED_VERSION));
+        dtb.write_be_u32(len, SUPPORTED_VERSION)?;
         // Last comp version
         let len = dtb.len();
-        r#try!(dtb.write_be_u32(len, COMPAT_VERSION));
+        dtb.write_be_u32(len, COMPAT_VERSION)?;
         // boot_cpuid_phys
         let len = dtb.len();
-        r#try!(dtb.write_be_u32(len, self.boot_cpuid_phys));
+        dtb.write_be_u32(len, self.boot_cpuid_phys)?;
 
         let off_size_strings = dtb.len();
-        r#try!(dtb.write_be_u32(off_size_strings, 0)); // Fill in size_dt_strings later
+        dtb.write_be_u32(off_size_strings, 0)?; // Fill in size_dt_strings later
         let off_size_struct = dtb.len();
-        r#try!(dtb.write_be_u32(off_size_struct, 0)); // Fill in size_dt_struct later
+        dtb.write_be_u32(off_size_struct, 0)?; // Fill in size_dt_struct later
 
         // Memory Reservation Block
-        r#try!(dtb.pad(8));
+        dtb.pad(8)?;
         let len = dtb.len();
-        r#try!(dtb.write_be_u32(off_mem_rsvmap, len as u32));
+        dtb.write_be_u32(off_mem_rsvmap, len as u32)?;
         for reservation in self.reserved.iter() {
             // address
             let len = dtb.len();
-            r#try!(dtb.write_be_u64(len, reservation.0));
+            dtb.write_be_u64(len, reservation.0)?;
             // size
             let len = dtb.len();
-            r#try!(dtb.write_be_u64(len, reservation.1));
+            dtb.write_be_u64(len, reservation.1)?;
         }
 
         // Structure Block
-        r#try!(dtb.pad(4));
+        dtb.pad(4)?;
         let structure_start = dtb.len();
-        r#try!(dtb.write_be_u32(off_dt_struct, structure_start as u32));
-        r#try!(self.root.store(&mut dtb, &mut strings));
+        dtb.write_be_u32(off_dt_struct, structure_start as u32)?;
+        self.root.store(&mut dtb, &mut strings)?;
 
-        r#try!(dtb.pad(4));
+        dtb.pad(4)?;
         let len = dtb.len();
-        r#try!(dtb.write_be_u32(len, OF_DT_END));
+        dtb.write_be_u32(len, OF_DT_END)?;
 
         let len = dtb.len();
-        r#try!(dtb.write_be_u32(off_size_struct, (len - structure_start) as u32));
-        r#try!(dtb.write_be_u32(off_size_strings, strings.buffer.len() as u32));
+        dtb.write_be_u32(off_size_struct, (len - structure_start) as u32)?;
+        dtb.write_be_u32(off_size_strings, strings.buffer.len() as u32)?;
 
         // Strings Block
-        r#try!(dtb.pad(4));
+        dtb.pad(4)?;
         let len = dtb.len();
-        r#try!(dtb.write_be_u32(off_dt_strings, len as u32));
+        dtb.write_be_u32(off_dt_strings, len as u32)?;
         dtb.extend_from_slice(&strings.buffer);
 
         let len = dtb.len();
-        r#try!(dtb.write_be_u32(size_off, len as u32));
+        dtb.write_be_u32(size_off, len as u32)?;
 
         Ok(dtb)
     }
@@ -341,30 +341,30 @@ impl Node {
         off_dt_strings: usize,
     ) -> Result<(usize, Node), DeviceTreeError> {
         // check for DT_BEGIN_NODE
-        if r#try!(buffer.read_be_u32(start)) != OF_DT_BEGIN_NODE {
+        if buffer.read_be_u32(start)? != OF_DT_BEGIN_NODE {
             return Err(DeviceTreeError::ParseError(start));
         }
 
-        let raw_name = r#try!(buffer.read_bstring0(start + 4));
+        let raw_name = buffer.read_bstring0(start + 4)?;
 
         // read all the props
         let mut pos = align(start + 4 + raw_name.len() + 1, 4);
 
         let mut props = Vec::new();
 
-        while r#try!(buffer.read_be_u32(pos)) == OF_DT_PROP {
-            let val_size = r#try!(buffer.read_be_u32(pos + 4)) as usize;
-            let name_offset = r#try!(buffer.read_be_u32(pos + 8)) as usize;
+        while buffer.read_be_u32(pos)? == OF_DT_PROP {
+            let val_size = buffer.read_be_u32(pos + 4)? as usize;
+            let name_offset = buffer.read_be_u32(pos + 8)? as usize;
 
             // get value slice
             let val_start = pos + 12;
             let val_end = val_start + val_size;
-            let val = r#try!(buffer.subslice(val_start, val_end));
+            let val = buffer.subslice(val_start, val_end)?;
 
             // lookup name in strings table
-            let prop_name = r#try!(buffer.read_bstring0(off_dt_strings + name_offset));
+            let prop_name = buffer.read_bstring0(off_dt_strings + name_offset)?;
 
-            props.push((r#try!(str::from_utf8(prop_name)).to_owned(), val.to_owned()));
+            props.push((str::from_utf8(prop_name)?.to_owned(), val.to_owned()));
 
             pos = align(val_end, 4);
         }
@@ -372,14 +372,14 @@ impl Node {
         // finally, parse children
         let mut children = Vec::new();
 
-        while r#try!(buffer.read_be_u32(pos)) == OF_DT_BEGIN_NODE {
-            let (new_pos, child_node) = r#try!(Node::load(buffer, pos, off_dt_strings));
+        while buffer.read_be_u32(pos)? == OF_DT_BEGIN_NODE {
+            let (new_pos, child_node) = Node::load(buffer, pos, off_dt_strings)?;
             pos = new_pos;
 
             children.push(child_node);
         }
 
-        if r#try!(buffer.read_be_u32(pos)) != OF_DT_END_NODE {
+        if buffer.read_be_u32(pos)? != OF_DT_END_NODE {
             return Err(DeviceTreeError::ParseError(pos));
         }
 
@@ -388,7 +388,7 @@ impl Node {
         Ok((
             pos,
             Node {
-                name: r#try!(str::from_utf8(raw_name)).to_owned(),
+                name: str::from_utf8(raw_name)?.to_owned(),
                 props: props,
                 children: children,
             },
@@ -431,14 +431,14 @@ impl Node {
     }
 
     pub fn prop_str<'a>(&'a self, name: &str) -> Result<&'a str, PropError> {
-        let raw = r#try!(self.prop_raw(name).ok_or(PropError::NotFound));
+        let raw = self.prop_raw(name).ok_or(PropError::NotFound)?;
 
         let l = raw.len();
         if l < 1 || raw[l - 1] != 0 {
             return Err(PropError::Missing0);
         }
 
-        Ok(r#try!(str::from_utf8(&raw[..(l - 1)])))
+        Ok(str::from_utf8(&raw[..(l - 1)])?)
     }
 
     pub fn prop_raw<'a>(&'a self, name: &str) -> Option<&'a Vec<u8>> {
@@ -451,15 +451,15 @@ impl Node {
     }
 
     pub fn prop_u64(&self, name: &str) -> Result<u64, PropError> {
-        let raw = r#try!(self.prop_raw(name).ok_or(PropError::NotFound));
+        let raw = self.prop_raw(name).ok_or(PropError::NotFound)?;
 
-        Ok(r#try!(raw.as_slice().read_be_u64(0)))
+        Ok(raw.as_slice().read_be_u64(0)?)
     }
 
     pub fn prop_u32(&self, name: &str) -> Result<u32, PropError> {
-        let raw = r#try!(self.prop_raw(name).ok_or(PropError::NotFound));
+        let raw = self.prop_raw(name).ok_or(PropError::NotFound)?;
 
-        Ok(r#try!(raw.as_slice().read_be_u32(0)))
+        Ok(raw.as_slice().read_be_u32(0)?)
     }
 
     pub fn store(
@@ -467,25 +467,25 @@ impl Node {
         structure: &mut Vec<u8>,
         strings: &mut StringTable,
     ) -> Result<(), DeviceTreeError> {
-        r#try!(structure.pad(4));
+        structure.pad(4)?;
         let len = structure.len();
-        r#try!(structure.write_be_u32(len, OF_DT_BEGIN_NODE));
+        structure.write_be_u32(len, OF_DT_BEGIN_NODE)?;
 
-        r#try!(structure.write_bstring0(&self.name));
+        structure.write_bstring0(&self.name)?;
         for prop in self.props.iter() {
-            r#try!(structure.pad(4));
+            structure.pad(4)?;
             let len = structure.len();
-            r#try!(structure.write_be_u32(len, OF_DT_PROP));
+            structure.write_be_u32(len, OF_DT_PROP)?;
 
             // Write property value length
-            r#try!(structure.pad(4));
+            structure.pad(4)?;
             let len = structure.len();
-            r#try!(structure.write_be_u32(len, prop.1.len() as u32));
+            structure.write_be_u32(len, prop.1.len() as u32)?;
 
             // Write name offset
-            r#try!(structure.pad(4));
+            structure.pad(4)?;
             let len = structure.len();
-            r#try!(structure.write_be_u32(len, strings.add_string(&prop.0)));
+            structure.write_be_u32(len, strings.add_string(&prop.0))?;
 
             // Store the property value
             structure.extend_from_slice(&prop.1);
@@ -493,12 +493,12 @@ impl Node {
 
         // Recurse on children
         for child in self.children.iter() {
-            r#try!(child.store(structure, strings));
+            child.store(structure, strings)?;
         }
 
-        r#try!(structure.pad(4));
+        structure.pad(4)?;
         let len = structure.len();
-        r#try!(structure.write_be_u32(len, OF_DT_END_NODE));
+        structure.write_be_u32(len, OF_DT_END_NODE)?;
         Ok(())
     }
 }
