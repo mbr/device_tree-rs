@@ -20,13 +20,15 @@
 //!
 //! ```rust
 //! # use std::{fs, io::Read};
+//! use psi_device_tree::DeviceTree;
+//!
 //! fn main() {
 //!     // read file into memory
 //!     let mut input = fs::File::open("examples/bcm2709-rpi-2-b.dtb").unwrap();
 //!     let mut buf = Vec::new();
 //!     input.read_to_end(&mut buf).unwrap();
 //!
-//!     let dt = device_tree::DeviceTree::load(buf.as_slice ()).unwrap();
+//!     let dt = DeviceTree::load(buf.as_slice ()).unwrap();
 //!     println!("{:?}", dt);
 //! }
 //! ```

@@ -1,9 +1,7 @@
-extern crate device_tree;
-
 use std::fs;
 use std::io::{Read, Write};
 
-use device_tree::*;
+use psi_device_tree::*;
 
 #[test]
 fn roundtrip() {

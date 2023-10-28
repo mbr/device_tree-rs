@@ -1,5 +1,3 @@
-extern crate device_tree;
-
 use std::fs;
 use std::io::Read;
 use std::io::Write;
@@ -10,7 +8,7 @@ fn main() {
     let mut buf = Vec::new();
     input.read_to_end(&mut buf).unwrap();
 
-    let dt = device_tree::DeviceTree::load(buf.as_slice()).unwrap();
+    let dt = psi_device_tree::DeviceTree::load(buf.as_slice()).unwrap();
     println!("{:?}", dt);
 
     let dtb = dt.store().unwrap();

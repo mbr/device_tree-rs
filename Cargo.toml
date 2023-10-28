@@ -1,8 +1,8 @@
 [package]
-name = "device_tree"
-version = "1.0.3"
+name = "psi_device_tree"
+version = "2.1.0"
 edition = "2021"
-authors = ["Marc Brinkmann <git@marcbrinkmann.de>"]
+authors = ["Marc Brinkmann <git@marcbrinkmann.de>", "Daniel Maslowski <info@orangecms.org>"]
 license = "MIT"
 description = "Reads and parses Linux device tree images"
 repository = "https://github.com/mbr/device_tree-rs"
