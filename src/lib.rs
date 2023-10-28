@@ -172,6 +172,12 @@ mod stringtable {
         pub buffer: Vec<u8>,
     }
 
+    impl Default for StringTable {
+        fn default() -> Self {
+            StringTable::new()
+        }
+    }
+
     impl StringTable {
         pub fn new() -> StringTable {
             StringTable { buffer: Vec::new() }
@@ -253,10 +259,10 @@ impl DeviceTree {
         let (_, root) = Node::load(buffer, off_dt_struct, off_dt_strings)?;
 
         Ok(DeviceTree {
-            version: version,
-            boot_cpuid_phys: boot_cpuid_phys,
-            reserved: reserved,
-            root: root,
+            version,
+            boot_cpuid_phys,
+            reserved,
+            root,
         })
     }
 
@@ -269,7 +275,7 @@ impl DeviceTree {
         self.root.find(&path[1..])
     }
 
-    pub fn store<'a>(&'a self) -> Result<Vec<u8>, DeviceTreeError> {
+    pub fn store(&self) -> Result<Vec<u8>, DeviceTreeError> {
         let mut dtb = Vec::new();
         let mut strings = StringTable::new();
 
@@ -396,14 +402,14 @@ impl Node {
             pos,
             Node {
                 name: str::from_utf8(raw_name)?.to_owned(),
-                props: props,
-                children: children,
+                props,
+                children,
             },
         ))
     }
 
     pub fn find<'a>(&'a self, path: &str) -> Option<&'a Node> {
-        if path == "" {
+        if path.is_empty() {
             return Some(self);
         }
 
@@ -430,11 +436,7 @@ impl Node {
     }
 
     pub fn has_prop(&self, name: &str) -> bool {
-        if let Some(_) = self.prop_raw(name) {
-            true
-        } else {
-            false
-        }
+        self.prop_raw(name).is_some()
     }
 
     pub fn prop_str<'a>(&'a self, name: &str) -> Result<&'a str, PropError> {
@@ -449,7 +451,7 @@ impl Node {
     }
 
     pub fn prop_raw<'a>(&'a self, name: &str) -> Option<&'a Vec<u8>> {
-        for &(ref key, ref val) in self.props.iter() {
+        for (key, val) in self.props.iter() {
             if key == name {
                 return Some(val);
             }

@@ -1,6 +1,7 @@
 [package]
 name = "device_tree"
 version = "1.0.3"
+edition = "2021"
 authors = ["Marc Brinkmann <git@marcbrinkmann.de>"]
 license = "MIT"
 description = "Reads and parses Linux device tree images"
