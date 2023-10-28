@@ -10,6 +10,8 @@ documentation = "https://mbr.github.io/device_tree-rs/device_tree/"
 
 [dependencies]
 hashbrown = "0.13"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 
 [features]
 string-dedup = [] # Requires std

@@ -40,6 +40,7 @@ pub mod util;
 
 use alloc::{borrow::ToOwned, string::String, vec::Vec};
 use core::str;
+use serde::{Deserialize, Serialize};
 use util::{align, SliceRead, SliceReadError, VecWrite, VecWriteError};
 
 const MAGIC_NUMBER: u32 = 0xd00dfeed;
@@ -79,7 +80,7 @@ pub enum DeviceTreeError {
 }
 
 /// Device tree structure.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceTree {
     /// Version, as indicated by version header
     pub version: u32,
@@ -96,7 +97,7 @@ pub struct DeviceTree {
 }
 
 /// A single node in the device tree.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Node {
     /// The name of the node, as it appears in the node path.
     pub name: String,
