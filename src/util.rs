@@ -1,17 +1,12 @@
 use alloc::vec::Vec;
 pub use core::{convert, fmt, option, result, str};
 
+use crate::{SliceReadError, SliceReadResult, VecWriteError, VecWriteResult};
+
 #[inline]
 pub fn align(val: usize, to: usize) -> usize {
     val + (to - (val % to)) % to
 }
-
-#[derive(Debug)]
-pub enum SliceReadError {
-    UnexpectedEndOfInput,
-}
-
-pub type SliceReadResult<T> = Result<T, SliceReadError>;
 
 pub trait SliceRead {
     fn read_be_u32(&self, pos: usize) -> SliceReadResult<u32>;
@@ -70,14 +65,6 @@ impl<'a> SliceRead for &'a [u8] {
         Ok(&self[start..end])
     }
 }
-
-#[derive(Debug)]
-pub enum VecWriteError {
-    NonContiguousWrite,
-    UnalignedWrite,
-}
-
-pub type VecWriteResult = Result<(), VecWriteError>;
 
 pub trait VecWrite {
     fn write_be_u32(&mut self, pos: usize, val: u32) -> VecWriteResult;

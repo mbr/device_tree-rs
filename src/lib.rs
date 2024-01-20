@@ -38,12 +38,26 @@
 extern crate alloc;
 extern crate hashbrown;
 
+mod error;
 pub mod util;
 
 use alloc::{borrow::ToOwned, string::String, vec::Vec};
 use core::str;
 use serde::{Deserialize, Serialize};
-use util::{align, SliceRead, SliceReadError, VecWrite, VecWriteError};
+
+pub use error::*;
+use util::{align, SliceRead, VecWrite};
+
+#[cfg(not(feature = "string-dedup"))]
+mod string_table;
+#[cfg(feature = "string-dedup")]
+mod advanced_string_table;
+
+#[cfg(not(feature = "string-dedup"))]
+use string_table::StringTable;
+
+#[cfg(feature = "string-dedup")]
+use advanced_string_table::StringTable;
 
 const MAGIC_NUMBER: u32 = 0xd00dfeed;
 const SUPPORTED_VERSION: u32 = 17;
@@ -52,34 +66,6 @@ const OF_DT_BEGIN_NODE: u32 = 0x00000001;
 const OF_DT_END_NODE: u32 = 0x00000002;
 const OF_DT_PROP: u32 = 0x00000003;
 const OF_DT_END: u32 = 0x00000009;
-
-/// An error describe parsing problems when creating device trees.
-#[derive(Debug)]
-pub enum DeviceTreeError {
-    /// The magic number `MAGIC_NUMBER` was not found at the start of the
-    /// structure.
-    InvalidMagicNumber,
-
-    /// An offset or size found inside the device tree is outside of what was
-    /// supplied to `load()`.
-    SizeMismatch,
-
-    /// Failed to read data from slice.
-    SliceReadError(SliceReadError),
-
-    /// The data format was not as expected at the given position
-    ParseError(usize),
-
-    /// While trying to convert a string that was supposed to be ASCII, invalid
-    /// utf8 sequences were encounted
-    Utf8Error,
-
-    /// The device tree version is not supported by this library.
-    VersionNotSupported,
-
-    /// The device tree structure could not be serialized to DTB
-    VecWriteError(VecWriteError),
-}
 
 /// Device tree structure.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -111,99 +97,9 @@ pub struct Node {
     pub children: Vec<Node>,
 }
 
-#[derive(Debug)]
-pub enum PropError {
-    NotFound,
-    Utf8Error,
-    Missing0,
-    SliceReadError(SliceReadError),
-}
-
-impl From<SliceReadError> for DeviceTreeError {
-    fn from(e: SliceReadError) -> DeviceTreeError {
-        DeviceTreeError::SliceReadError(e)
-    }
-}
-
-impl From<VecWriteError> for DeviceTreeError {
-    fn from(e: VecWriteError) -> DeviceTreeError {
-        DeviceTreeError::VecWriteError(e)
-    }
-}
-
-impl From<str::Utf8Error> for DeviceTreeError {
-    fn from(_: str::Utf8Error) -> DeviceTreeError {
-        DeviceTreeError::Utf8Error
-    }
-}
-
-#[cfg(feature = "string-dedup")]
-mod advancedstringtable {
-    use hashbrown::HashMap;
-
-    pub struct StringTable {
-        pub buffer: Vec<u8>,
-        index: HashMap<String, u32>,
-    }
-
-    impl StringTable {
-        pub fn new() -> StringTable {
-            StringTable {
-                buffer: Vec::new(),
-                index: HashMap::new(),
-            }
-        }
-
-        pub fn add_string(&mut self, val: &str) -> u32 {
-            if let Some(offset) = self.index.get(val) {
-                return *offset;
-            }
-            let offset = self.buffer.len() as u32;
-            self.buffer.extend(val.bytes());
-            self.buffer.push(0);
-            self.index.insert(val.to_string(), offset);
-            offset
-        }
-    }
-}
-
-#[cfg(not(feature = "string-dedup"))]
-mod stringtable {
-    use alloc::vec::Vec;
-
-    pub struct StringTable {
-        pub buffer: Vec<u8>,
-    }
-
-    impl Default for StringTable {
-        fn default() -> Self {
-            StringTable::new()
-        }
-    }
-
-    impl StringTable {
-        pub fn new() -> StringTable {
-            StringTable { buffer: Vec::new() }
-        }
-
-        pub fn add_string(&mut self, val: &str) -> u32 {
-            let offset = self.buffer.len();
-            self.buffer.extend(val.bytes());
-            self.buffer.push(0);
-            offset as u32
-        }
-    }
-}
-
-#[cfg(not(feature = "string-dedup"))]
-use stringtable::StringTable;
-
-#[cfg(feature = "string-dedup")]
-use advancedstringtable::StringTable;
-
 impl DeviceTree {
     //! Load a device tree from a memory buffer.
-    pub fn load(buffer: &[u8]) -> Result<DeviceTree, DeviceTreeError> {
+    pub fn load(buffer: &[u8]) -> Result<DeviceTree> {
         //  0  magic_number: u32,
 
         //  4  totalsize: u32,
@@ -278,7 +174,7 @@ impl DeviceTree {
         self.root.find(&path[1..])
     }
 
-    pub fn store(&self) -> Result<Vec<u8>, DeviceTreeError> {
+    pub fn store(&self) -> Result<Vec<u8>> {
         let mut dtb = Vec::new();
         let mut strings = StringTable::new();
 
@@ -355,7 +251,7 @@ impl Node {
         buffer: &[u8],
         start: usize,
         off_dt_strings: usize,
-    ) -> Result<(usize, Node), DeviceTreeError> {
+    ) -> Result<(usize, Node)> {
         // check for DT_BEGIN_NODE
         if buffer.read_be_u32(start)? != OF_DT_BEGIN_NODE {
             return Err(DeviceTreeError::ParseError(start));
@@ -442,12 +338,12 @@ impl Node {
         self.prop_raw(name).is_some()
     }
 
-    pub fn prop_str<'a>(&'a self, name: &str) -> Result<&'a str, PropError> {
+    pub fn prop_str<'a>(&'a self, name: &str) -> Result<&'a str> {
         let raw = self.prop_raw(name).ok_or(PropError::NotFound)?;
 
         let l = raw.len();
         if l < 1 || raw[l - 1] != 0 {
-            return Err(PropError::Missing0);
+            return Err(PropError::Missing0.into());
         }
 
         Ok(str::from_utf8(&raw[..(l - 1)])?)
@@ -462,13 +358,13 @@ impl Node {
         None
     }
 
-    pub fn prop_u64(&self, name: &str) -> Result<u64, PropError> {
+    pub fn prop_u64(&self, name: &str) -> Result<u64> {
         let raw = self.prop_raw(name).ok_or(PropError::NotFound)?;
 
         Ok(raw.as_slice().read_be_u64(0)?)
     }
 
-    pub fn prop_u32(&self, name: &str) -> Result<u32, PropError> {
+    pub fn prop_u32(&self, name: &str) -> Result<u32> {
         let raw = self.prop_raw(name).ok_or(PropError::NotFound)?;
 
         Ok(raw.as_slice().read_be_u32(0)?)
@@ -478,7 +374,7 @@ impl Node {
         &self,
         structure: &mut Vec<u8>,
         strings: &mut StringTable,
-    ) -> Result<(), DeviceTreeError> {
+    ) -> Result<()> {
         structure.pad(4)?;
         let len = structure.len();
         structure.write_be_u32(len, OF_DT_BEGIN_NODE)?;
@@ -512,17 +408,5 @@ impl Node {
         let len = structure.len();
         structure.write_be_u32(len, OF_DT_END_NODE)?;
         Ok(())
-    }
-}
-
-impl From<str::Utf8Error> for PropError {
-    fn from(_: str::Utf8Error) -> PropError {
-        PropError::Utf8Error
-    }
-}
-
-impl From<SliceReadError> for PropError {
-    fn from(e: SliceReadError) -> PropError {
-        PropError::SliceReadError(e)
     }
 }
