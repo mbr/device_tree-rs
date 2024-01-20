@@ -119,18 +119,18 @@ impl DeviceTree {
         // 36  size_dt_struct: u32,
 
         if buffer.read_be_u32(0)? != MAGIC_NUMBER {
-            return Err(DeviceTreeError::InvalidMagicNumber);
+            return Err(Error::InvalidMagicNumber);
         }
 
         // check total size
         if buffer.read_be_u32(4)? as usize != buffer.len() {
-            return Err(DeviceTreeError::SizeMismatch);
+            return Err(Error::SizeMismatch);
         }
 
         // check version
         let version = buffer.read_be_u32(20)?;
         if version != SUPPORTED_VERSION {
-            return Err(DeviceTreeError::VersionNotSupported);
+            return Err(Error::VersionNotSupported);
         }
 
         let off_dt_struct = buffer.read_be_u32(8)? as usize;
@@ -254,7 +254,7 @@ impl Node {
     ) -> Result<(usize, Node)> {
         // check for DT_BEGIN_NODE
         if buffer.read_be_u32(start)? != OF_DT_BEGIN_NODE {
-            return Err(DeviceTreeError::ParseError(start));
+            return Err(Error::ParseError(start));
         }
 
         let raw_name = buffer.read_bstring0(start + 4)?;
@@ -292,7 +292,7 @@ impl Node {
         }
 
         if buffer.read_be_u32(pos)? != OF_DT_END_NODE {
-            return Err(DeviceTreeError::ParseError(pos));
+            return Err(Error::ParseError(pos));
         }
 
         pos += 4;

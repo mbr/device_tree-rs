@@ -1,13 +1,13 @@
 /// Convenience alias for the [`Result`](core::result::Result) type.
-pub type Result<T> = core::result::Result<T, DeviceTreeError>;
+pub type Result<T> = core::result::Result<T, Error>;
 
 pub type SliceReadResult<T> = core::result::Result<T, SliceReadError>;
 
 pub type VecWriteResult = core::result::Result<(), VecWriteError>;
 
 /// An error describe parsing problems when creating device trees.
-#[derive(Debug)]
-pub enum DeviceTreeError {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Error {
     /// The magic number `MAGIC_NUMBER` was not found at the start of the
     /// structure.
     InvalidMagicNumber,
@@ -36,32 +36,32 @@ pub enum DeviceTreeError {
     PropError(PropError),
 }
 
-impl From<SliceReadError> for DeviceTreeError {
-    fn from(e: SliceReadError) -> DeviceTreeError {
-        DeviceTreeError::SliceReadError(e)
+impl From<SliceReadError> for Error {
+    fn from(e: SliceReadError) -> Error {
+        Error::SliceReadError(e)
     }
 }
 
-impl From<VecWriteError> for DeviceTreeError {
-    fn from(e: VecWriteError) -> DeviceTreeError {
-        DeviceTreeError::VecWriteError(e)
+impl From<VecWriteError> for Error {
+    fn from(e: VecWriteError) -> Error {
+        Error::VecWriteError(e)
     }
 }
 
-impl From<PropError> for DeviceTreeError {
+impl From<PropError> for Error {
     fn from(e: PropError) -> Self {
         Self::PropError(e)
     }
 }
 
-impl From<core::str::Utf8Error> for DeviceTreeError {
-    fn from(_: core::str::Utf8Error) -> DeviceTreeError {
-        DeviceTreeError::Utf8Error
+impl From<core::str::Utf8Error> for Error {
+    fn from(_: core::str::Utf8Error) -> Error {
+        Error::Utf8Error
     }
 }
 
 /// Represents property errors.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PropError {
     NotFound,
     Utf8Error,
@@ -81,12 +81,12 @@ impl From<SliceReadError> for PropError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SliceReadError {
     UnexpectedEndOfInput,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum VecWriteError {
     NonContiguousWrite,
     UnalignedWrite,
