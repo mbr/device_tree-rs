@@ -1,12 +1,12 @@
 [package]
 name = "psi_device_tree"
-version = "2.1.0"
+version = "2.2.0"
 edition = "2021"
 authors = ["Marc Brinkmann <git@marcbrinkmann.de>", "Daniel Maslowski <info@orangecms.org>"]
 license = "MIT"
 description = "Reads and parses Linux device tree images"
-repository = "https://github.com/mbr/device_tree-rs"
-documentation = "https://mbr.github.io/device_tree-rs/device_tree/"
+repository = "https://github.com/platform-system-interface/device_tree-rs"
+documentation = "https://docs.rs/psi_device_tree"
 
 [dependencies]
 hashbrown = "0.13"
