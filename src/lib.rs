@@ -48,10 +48,10 @@ use serde::{Deserialize, Serialize};
 pub use error::*;
 use util::{align, SliceRead, VecWrite};
 
-#[cfg(not(feature = "string-dedup"))]
-mod string_table;
 #[cfg(feature = "string-dedup")]
 mod advanced_string_table;
+#[cfg(not(feature = "string-dedup"))]
+mod string_table;
 
 #[cfg(not(feature = "string-dedup"))]
 use string_table::StringTable;
@@ -247,11 +247,7 @@ impl DeviceTree {
 }
 
 impl Node {
-    fn load(
-        buffer: &[u8],
-        start: usize,
-        off_dt_strings: usize,
-    ) -> Result<(usize, Node)> {
+    fn load(buffer: &[u8], start: usize, off_dt_strings: usize) -> Result<(usize, Node)> {
         // check for DT_BEGIN_NODE
         if buffer.read_be_u32(start)? != OF_DT_BEGIN_NODE {
             return Err(Error::ParseError(start));
@@ -370,11 +366,7 @@ impl Node {
         Ok(raw.as_slice().read_be_u32(0)?)
     }
 
-    pub fn store(
-        &self,
-        structure: &mut Vec<u8>,
-        strings: &mut StringTable,
-    ) -> Result<()> {
+    pub fn store(&self, structure: &mut Vec<u8>, strings: &mut StringTable) -> Result<()> {
         structure.pad(4)?;
         let len = structure.len();
         structure.write_be_u32(len, OF_DT_BEGIN_NODE)?;
