@@ -18,7 +18,7 @@ Some example device trees to try out are [the Raspberry Pi ones](https://github.
 
 This library does not use `std`, just `core`.
 
-# Examples
+## Example usage
 
 ```rust
 use std::{fs, io::Read};
@@ -33,4 +33,14 @@ fn main() {
     let dt = DT::load(buf.as_slice ()).unwrap();
     println!("{dt:?}");
 }
+```
+
+## CLI Tools
+
+### `extract-dtb`
+
+extract .dtb files from images
+
+```
+$> cargo run extract-dtb
 ```
