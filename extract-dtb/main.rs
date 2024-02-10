@@ -19,12 +19,17 @@ struct Args {
 fn main() {
     let args = Args::parse();
     let filename = args.filename;
-    let mut dest;
-    if args.dest == String::from("") {
-        dest = String::from("./");
+
+    println!("{:?}", args.dest);
+ 
+    let dest = if args.dest.is_empty() {
+        String::from("./")
     } else {
-        dest = String::from(args.dest);
-    }
+        String::from(args.dest)
+    };
+
+    println!("{:?}", dest);
+
 
     let mut f = File::open(filename).unwrap();
     let step = 8;
@@ -48,7 +53,7 @@ fn main() {
             let mut buf = vec![0; size];
             f.read_exact(&mut buf).unwrap();
 
-            let dt = DT::load(&buf).unwrap();
+            let _dt = DT::load(&buf).unwrap();
 
             // does it exist? if not, rule 34
             fs::create_dir_all(&dest).unwrap();
@@ -68,4 +73,6 @@ fn main() {
             output.write_all(&buf).unwrap();
         }
     }
+
+
 }
