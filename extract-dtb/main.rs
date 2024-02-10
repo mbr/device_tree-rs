@@ -13,6 +13,7 @@ struct Args {
     /// Filename
     #[arg(required=true)]
     filename: String,
+    #[arg(required=false)]
     dest: String,
 }
 

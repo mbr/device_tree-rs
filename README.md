@@ -42,5 +42,5 @@ fn main() {
 extract .dtb files from images
 
 ```
-$> cargo run extract-dtb
+cargo run extract-dtb
 ```
