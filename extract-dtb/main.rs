@@ -11,16 +11,20 @@ const DTB_MAGIC: u32 = 0xd00d_feed;
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Filename
-    #[arg(short, long)]
+    #[arg(required=true)]
     filename: String,
-    #[arg(short, long)]
     dest: String,
 }
 
 fn main() {
     let args = Args::parse();
     let filename = args.filename;
-    let dest = args.dest;
+    let mut dest;
+    if args.dest == String::from("") {
+        dest = String::from("./");
+    } else {
+        dest = String::from(args.dest);
+    }
 
     let mut f = File::open(filename).unwrap();
     let step = 8;
